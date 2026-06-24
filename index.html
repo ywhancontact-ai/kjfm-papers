@@ -119,7 +119,7 @@
 <body>
 <header>
   <div>
-    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v41 · Live정확본·메모하이라이트</span></h1>
+    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v43 · 정확PDF백엔드</span></h1>
     <div class="sub">Runs in your browser — <b>Export to Word</b> → a validated KJFM-format .docx (no server)</div>
   </div>
   <span id="status">Checking template…</span>
@@ -278,7 +278,7 @@
 <div id="previewOverlay">
   <div class="pv-bar">
     <span class="pv-bar-title">Preview <span class="hint" style="color:#9bd">— the actual exported document (full). Save as PDF = print.</span></span>
-    <button class="pv-close" onclick="savePdf()" style="margin-right:8px">Save as PDF</button><button class="pv-close" onclick="closePreview()">Close ✕</button>
+    <button class="pv-close" onclick="openPdfTab()" style="margin-right:8px">↗ 새 탭</button><button class="pv-close" onclick="savePdf()" style="margin-right:8px">Save as PDF</button><button class="pv-close" onclick="closePreview()">Close ✕</button>
   </div>
   <div class="pv-scroll" id="pvScroll">
     <div id="pvLoading" style="color:#fff; text-align:center; padding:70px 20px; font-size:15px">Generating exact PDF preview…</div>
@@ -780,6 +780,7 @@ function savePdf(){
   if(pdf.style.display!=='none' && _pvBlobUrl){ const a=document.createElement('a'); a.href=_pvBlobUrl; a.download='KJFM_preview.pdf'; a.click(); }
   else window.print();
 }
+function openPdfTab(){ if(_pvBlobUrl) window.open(_pvBlobUrl,'_blank'); else window.print(); }
 function exportPdf(){ openPreview(true); }   // Export to PDF = 정확 PDF(백엔드) 또는 렌더 후 인쇄
 function closePreview(){ document.getElementById('previewOverlay').style.display='none'; }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closePreview(); closeReview(); } });
