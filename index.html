@@ -317,7 +317,7 @@
 
 <script>
 // 정확 PDF 백엔드(LibreOffice). 배포 후 URL을 넣으면 Preview가 워드 동일 PDF로. 비면 docx-preview 근사.
-let BACKEND_URL = (function(){ try{ return (localStorage.getItem('kjfm_backend')||'').trim(); }catch(e){ return ''; } })() || "";
+let BACKEND_URL = (function(){ try{ return (localStorage.getItem('kjfm_backend')||'').trim(); }catch(e){ return ''; } })() || "https://kjfm-backend.onrender.com";
 // ── 브라우저 파이썬 엔진(Pyodide) — 서버 없이. 출력은 서버판과 byte 동일(검증됨) ──
 let _py=null;
 const _setStatus=(t,bad)=>{const el=document.getElementById('status'); if(el){el.textContent=t; el.className=bad?'bad':'ok';}};
