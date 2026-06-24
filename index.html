@@ -107,7 +107,7 @@
 <body>
 <header>
   <div>
-    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v34</span></h1>
+    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v35 · Review+Notes·영문파싱·가설</span></h1>
     <div class="sub">Runs in your browser — <b>Export to Word</b> → a validated KJFM-format .docx (no server)</div>
   </div>
   <span id="status">Checking template…</span>
@@ -248,6 +248,7 @@
     <button class="ghost" onclick="saveDraft()">Save draft</button>
     <button class="ghost" onclick="loadDraft()">Load draft</button>
     <button class="ghost" onclick="checkCitations()">Check refs</button>
+    <button class="ghost" onclick="openReview()">Review + Notes</button>
     <button class="ghost" onclick="openPreview()">Preview</button>
     <button class="export" id="exportBtn" onclick="exportDocx()">Export to Word</button>
   </div>
@@ -262,6 +263,30 @@
     <div id="pvLoading" style="color:#fff; text-align:center; padding:70px 20px; font-size:15px">Generating exact PDF preview…</div>
     <iframe id="pvPdf" style="display:none; width:100%; height:100%; border:none; background:#fff; border-radius:4px"></iframe>
     <div class="pv-page" id="previewPage" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Review + Notes (읽기뷰 + 옆 메모) -->
+<div id="reviewOverlay" style="display:none; position:fixed; inset:0; z-index:101; background:#e9eaed">
+  <div class="pv-bar">
+    <span class="pv-bar-title">Review + Notes <span class="hint" style="color:#9bd">— 논문을 읽으며 오른쪽에 메모 (자동 저장)</span></span>
+    <button class="pv-close" onclick="closeReview()">Close ✕</button>
+  </div>
+  <div style="position:absolute; top:50px; bottom:0; left:0; right:0; display:flex">
+    <div style="flex:1; overflow:auto; padding:28px 14px">
+      <div class="pv-page" id="reviewPaper" style="display:block"></div>
+    </div>
+    <div style="width:380px; min-width:300px; border-left:1px solid #cfd2d6; background:#fff; display:flex; flex-direction:column">
+      <div style="padding:14px 18px; font-weight:700; font-size:14px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center">
+        <span>📝 Notes</span>
+        <span id="notesSaved" style="font-size:11px; color:var(--muted); font-weight:400"></span>
+      </div>
+      <textarea id="reviewNotes" style="flex:1; border:none; outline:none; padding:18px; resize:none; font-size:14px; line-height:1.7; font-family:var(--sans)" placeholder="여기에 메모를 적으세요…&#10;(이 논문에 묶여 자동 저장됩니다)"></textarea>
+      <div style="padding:10px 18px; border-top:1px solid #eee; display:flex; gap:8px">
+        <button class="ghost" style="flex:1; padding:9px" onclick="copyNotes()">메모 복사</button>
+        <button class="ghost" style="flex:1; padding:9px" onclick="clearNotes()">메모 비우기</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -695,8 +720,34 @@ function openPreview(){
   document.getElementById('previewOverlay').style.display='block';
 }
 function closePreview(){ document.getElementById('previewOverlay').style.display='none'; }
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePreview(); });
-document.addEventListener('input', ()=>{ if(document.getElementById('previewOverlay').style.display==='block') renderPreview(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closePreview(); closeReview(); } });
+
+// ── Review + Notes (읽기뷰 + 옆 메모) ──
+function _notesKey(){
+  const t=(document.getElementById('title_en').value||'').trim().slice(0,60) || 'default';
+  return 'kjfm_notes::'+t;
+}
+function openReview(){
+  renderPreview();                                   // 논문 HTML 생성(#previewPage)
+  document.getElementById('reviewPaper').innerHTML = document.getElementById('previewPage').innerHTML
+    || '<div class="pv-empty">입력된 내용이 없습니다.</div>';
+  document.getElementById('reviewNotes').value = localStorage.getItem(_notesKey()) || '';
+  document.getElementById('reviewOverlay').style.display='block';
+}
+function closeReview(){ const o=document.getElementById('reviewOverlay'); if(o) o.style.display='none'; }
+function copyNotes(){
+  navigator.clipboard.writeText(document.getElementById('reviewNotes').value||'');
+  const s=document.getElementById('notesSaved'); s.textContent='복사됨'; setTimeout(()=>s.textContent='',1500);
+}
+function clearNotes(){
+  if(confirm('이 논문의 메모를 비울까요?')){
+    document.getElementById('reviewNotes').value=''; localStorage.removeItem(_notesKey());
+  }
+}
+document.getElementById('reviewNotes').addEventListener('input', ()=>{
+  localStorage.setItem(_notesKey(), document.getElementById('reviewNotes').value);
+  const s=document.getElementById('notesSaved'); s.textContent='저장됨 ✓';
+});
 
 async function checkCitations(){
   const ov=document.getElementById('previewOverlay'); ov.style.display='block';
