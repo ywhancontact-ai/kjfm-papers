@@ -252,13 +252,14 @@
     <button class="ghost" onclick="checkCitations()">Check refs</button>
     <button class="ghost" onclick="openReview()">Review + Notes</button>
     <button class="ghost" onclick="openPreview()">Preview</button>
+    <button class="ghost" onclick="exportPdf()" style="font-weight:700">Export to PDF</button>
     <button class="export" id="exportBtn" onclick="exportDocx()">Export to Word</button>
   </div>
 </footer>
 
 <div id="previewOverlay">
   <div class="pv-bar">
-    <span class="pv-bar-title">Preview <span class="hint" style="color:#9bd">— the actual exported document (use Save as PDF to print)</span></span>
+    <span class="pv-bar-title">Preview <span class="hint" style="color:#9bd">— the actual exported document (full). Save as PDF = print.</span></span>
     <button class="pv-close" onclick="savePdf()" style="margin-right:8px">Save as PDF</button><button class="pv-close" onclick="closePreview()">Close ✕</button>
   </div>
   <div class="pv-scroll" id="pvScroll">
@@ -323,6 +324,12 @@ async function pyParse(bytes){
   await _pyReady; _py.FS.writeFile('/up.docx', bytes);
   const out=await _py.runPythonAsync("import json,engine\njson.dumps(engine.parse_docx(open('/up.docx','rb').read()),ensure_ascii=False)");
   return JSON.parse(out);
+}
+// 실제 내보낼 .docx를 docx-preview로 렌더(=full edit 버전) — Preview/Review 공통
+async function renderDocxInto(el){
+  const bytes=await pyBuild(withNumbers(gather()));
+  el.innerHTML='';
+  await docx.renderAsync(new Blob([bytes]), el, null, {inWrapper:true, experimental:true, ignoreLastRenderedPageBreak:false});
 }
 async function pyCheck(data){
   await _pyReady; _py.globals.set('_dj', JSON.stringify(data));
@@ -714,20 +721,20 @@ function renderPreview(){
   });
   document.getElementById('previewPage').innerHTML = h || '<div class="pv-empty">Nothing entered yet.</div>';
 }
-async function openPreview(){
+async function openPreview(autoPrint){
   const ov=document.getElementById('previewOverlay'); ov.style.display='block';
   const load=document.getElementById('pvLoading'), page=document.getElementById('previewPage');
   document.getElementById('pvPdf').style.display='none';
   page.style.display='none'; load.style.display='block'; load.textContent='Rendering exported document… (a few seconds)';
   try{
-    const data=withNumbers(gather());
-    const bytes=await pyBuild(data);
-    page.innerHTML=''; page.style.display='block'; page.style.maxWidth='none'; page.style.background='transparent'; page.style.boxShadow='none'; page.style.padding='0';
-    await docx.renderAsync(new Blob([bytes]), page, null, {inWrapper:true, ignoreLastRenderedPageBreak:false, experimental:true});
+    page.style.display='block'; page.style.maxWidth='none'; page.style.background='transparent'; page.style.boxShadow='none'; page.style.padding='0';
+    await renderDocxInto(page);
     load.style.display='none';
+    if(autoPrint) setTimeout(()=>window.print(), 400);
   }catch(e){ load.textContent='Preview failed: '+e.message+'  (Export still works.)'; console.error(e); }
 }
 function savePdf(){ window.print(); }
+function exportPdf(){ openPreview(true); }   // Export to PDF = full 렌더 후 인쇄(PDF 저장)
 function closePreview(){ document.getElementById('previewOverlay').style.display='none'; }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closePreview(); closeReview(); } });
 
@@ -736,12 +743,14 @@ function _notesKey(){
   const t=(document.getElementById('title_en').value||'').trim().slice(0,60) || 'default';
   return 'kjfm_notes::'+t;
 }
-function openReview(){
-  renderPreview();                                   // 논문 HTML 생성(#previewPage)
-  document.getElementById('reviewPaper').innerHTML = document.getElementById('previewPage').innerHTML
-    || '<div class="pv-empty">입력된 내용이 없습니다.</div>';
-  document.getElementById('reviewNotes').value = localStorage.getItem(_notesKey()) || '';
+async function openReview(){
   document.getElementById('reviewOverlay').style.display='block';
+  const paper=document.getElementById('reviewPaper');
+  paper.innerHTML='<div class="pv-empty">Rendering document… (a few seconds)</div>';
+  paper.style.maxWidth='none'; paper.style.background='transparent'; paper.style.boxShadow='none'; paper.style.padding='0';
+  document.getElementById('reviewNotes').value = localStorage.getItem(_notesKey()) || '';
+  try{ await renderDocxInto(paper); }
+  catch(e){ paper.innerHTML='<div class="pv-empty">Render failed: '+e.message+'</div>'; }
 }
 function closeReview(){ const o=document.getElementById('reviewOverlay'); if(o) o.style.display='none'; }
 function copyNotes(){
@@ -787,7 +796,7 @@ async function exportDocx(){
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = name; a.click();
     URL.revokeObjectURL(a.href);
-    btn.textContent = '✓ Done!'; setTimeout(()=>btn.textContent='Export to Word', 1800);
+    btn.textContent = '✓ Done!'; setTimeout(()=>btn.textContent='Export to Word', 1800); openPreview();
   }catch(err){ alert('Export failed: ' + err.message); btn.textContent='Export to Word'; }
   finally{ btn.disabled = false; }
 }
