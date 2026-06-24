@@ -582,11 +582,12 @@ def build_docx(data):
         fid[0] += 1
         return fid[0]
 
-    # 제목 설명각주(*) — 제목의 * 마커는 15.6pt(≈15.5) TNR(제목 크기), 본문 각주는 8pt
+    # 제목 설명각주 — ⚠️ '*' 커스텀마크는 Word가 제목을 깨뜨림 → 안전한 번호 각주 사용.
+    # 단, 제목의 마커 크기만 15.5pt TNR로(요청), 본문 각주 텍스트는 8pt.
     if (data.get('title_note', '') or '').strip() and title_last_p is not None:
         _tnid = next_fid()
-        _add_footnote_ref(title_last_p, _tnid, mark='*', half_pt='31', superscript=False)
-        fn_items.append((_tnid, data['title_note'].strip(), '*'))
+        _add_footnote_ref(title_last_p, _tnid, half_pt='31')   # 번호 각주, 마커 15.5pt 위첨자
+        fn_items.append((_tnid, data['title_note'].strip()))
 
     affs = [a.strip() for a in (data.get('affiliations', '') or '').split('\n') if a.strip()]
     authors_line = (data.get('authors', '') or '').strip()
