@@ -1374,6 +1374,32 @@ def _block_nonempty(b):
     return bool(b.get('text', '').strip())
 
 
+def _extract_hypotheses(blocks):
+    """불러온 본문에서 가설(H1:/H2:/Hypothesis/가설) 줄을 자동으로 가설 블록으로 분리.
+    body 블록 안의 연속 가설 줄 → 'hyp' 블록, 인접 가설 블록은 병합."""
+    expanded = []
+    for b in blocks:
+        if b.get('type') != 'body' or not (b.get('text') or '').strip():
+            expanded.append(b); continue
+        run_type, run = None, []
+        for ln in (b.get('text') or '').split('\n'):
+            t = 'hyp' if (ln.strip() and _HYP_RE.match(ln.strip())) else 'body'
+            if run and t != run_type:
+                expanded.append({'type': run_type, 'text': '\n'.join(run)}); run = []
+            run_type = t; run.append(ln)
+        if run:
+            expanded.append({'type': run_type, 'text': '\n'.join(run)})
+    merged = []
+    for b in expanded:
+        if b.get('type') in ('body', 'hyp') and not (b.get('text') or '').strip():
+            continue
+        if merged and b.get('type') == 'hyp' and merged[-1].get('type') == 'hyp':
+            merged[-1]['text'] += '\n' + b['text']
+        else:
+            merged.append(b)
+    return merged
+
+
 def _extract_footnotes(file_bytes):
     """불러온 docx의 footnotes.xml에서 저자 소속 각주 텍스트 추출(저작권 제외)."""
     import zipfile
@@ -1422,6 +1448,7 @@ def parse_docx(file_bytes):
     else:
         _parse_generic(items, res)
     res['blocks'] = [b for b in res['blocks'] if _block_nonempty(b)]
+    res['blocks'] = _extract_hypotheses(res['blocks'])   # 가설 줄 → 가설 섹션 자동 분리
     # 각주 분류: 소속(Affiliation/교수/대학/Email)은 affiliations, 그 외(지원·감사)는 제목 설명각주
     _foots = _extract_footnotes(file_bytes)
     _affs, _tnote = [], ''
