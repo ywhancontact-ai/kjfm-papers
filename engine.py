@@ -611,6 +611,7 @@ def _add_reference(doc, line):
     line = _norm_sig_zero(normalize_doi(line))       # * * *→***, 0.X→.X (DOI/연도 영향 없음)
     p = doc.add_paragraph(style=S_REF)
     _apply_style_indent(doc, p, S_REF)               # 내어쓰기 직접 적용(PDF 렌더용)
+    p.paragraph_format.line_spacing = 1.0            # 단일 줄간격(스타일 AT_LEAST가 PDF서 과하게 벌어짐 방지)
     s = e = None
     m = re.search(r',\s*(\d+)\s*[\(,]', line)   # ", 38(" 또는 ", 38,"
     if m:
@@ -689,11 +690,17 @@ def build_docx(data):
         p = doc.add_paragraph(style=S_AUTHOR_NAME)   # 저자명: HY신명조 9pt(앞 14pt)
         parts = [a.strip() for a in authors_line.split(',') if a.strip()]
         for i, ap in enumerate(parts):
-            p.add_run(ap)
+            # 저자명 끝의 소속 번호(예: "Shiqi YU1") 분리 — 일반 글자로 두지 않고 첨자/각주로
+            mnum = re.match(r'^(.*?\S)\s*(\d+)$', ap)
+            name = mnum.group(1) if mnum else ap
+            num = mnum.group(2) if mnum else ''
+            p.add_run(name)
             if i < len(affs):
                 _id = next_fid()
-                _add_footnote_ref(p, _id)
+                _add_footnote_ref(p, _id)            # 자동 번호 첨자 각주(소속 있음)
                 fn_items.append((_id, affs[i]))
+            elif num:
+                r = p.add_run(num); r.font.superscript = True   # 소속 없으면 입력 번호만 첨자로
             if i < len(parts) - 1:
                 p.add_run(', ')
     # 5) 심사일 — 앞에 '게재일' 스타일 빈 줄 + 심사일(8pt) + 라이선스 각주(2단 각주영역 우측)
