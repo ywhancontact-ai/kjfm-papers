@@ -102,15 +102,16 @@
   .pv-fig{ max-width:80%; max-height:320px; }
   .pv-fcap{ text-align:center; font-weight:bold; font-size:11px; margin:0 0 12px; }
 </style>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.28.0/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>try{ if(!window.JSZip && typeof exports!=="undefined" && exports && exports.JSZip) window.JSZip=exports.JSZip; }catch(e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.28.0/full/pyodide.js"></script>
 <style>@media print{ body>*:not(#previewOverlay){display:none!important;} #previewOverlay{position:static!important;background:#fff!important;} #previewOverlay .pv-bar{display:none!important;} #previewOverlay .pv-scroll{position:static!important;overflow:visible!important;padding:0!important;} #previewPage{box-shadow:none!important;} }</style>
 </head>
 <body>
 <header>
   <div>
-    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v35 · Review+Notes·영문파싱·가설</span></h1>
+    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v36 · zip저장·미리보기수정</span></h1>
     <div class="sub">Runs in your browser — <b>Export to Word</b> → a validated KJFM-format .docx (no server)</div>
   </div>
   <span id="status">Checking template…</span>
@@ -248,8 +249,9 @@
 <footer>
   <span class="info" id="foot">KJFM standard format applied</span>
   <div style="display:flex; gap:10px">
-    <button class="ghost" onclick="saveDraft()">Save draft</button>
-    <button class="ghost" onclick="loadDraft()">Load draft</button>
+    <button class="ghost" onclick="saveProject()">Save project (.zip)</button>
+    <button class="ghost" onclick="document.getElementById('projectFile').click()">Open project</button>
+    <input type="file" id="projectFile" accept=".zip,.json" style="display:none" onchange="openProject(event)">
     <button class="ghost" onclick="checkCitations()">Check refs</button>
     <button class="ghost" onclick="openReview()">Review + Notes</button>
     <button class="ghost" onclick="openPreview()">Preview</button>
@@ -816,6 +818,39 @@ function loadDraft(){
   renderAppendix(d.appendix || []);
   document.getElementById('blocks').innerHTML='';
   (d.blocks||[]).forEach(restoreBlock);
+}
+// ── 프로젝트 저장/열기 (.zip 파일 — 입력 내용을 보관했다가 나중에 이어서 편집) ──
+async function saveProject(){
+  const data = withNumbers(gather());
+  let nm = (document.getElementById('title_en').value || document.getElementById('title_ko').value || 'KJFM')
+           .trim().replace(/\s+/g,'_').replace(/[^\w가-힣_-]/g,'').slice(0,40) || 'KJFM';
+  const json = JSON.stringify({_kjfm_project:1, savedAt:new Date().toISOString(), data}, null, 2);
+  let blob, ext;
+  if(window.JSZip){
+    const zip = new JSZip();
+    zip.file('project.json', json);
+    blob = await zip.generateAsync({type:'blob'}); ext='.zip';
+  } else { blob = new Blob([json], {type:'application/json'}); ext='.json'; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nm+'_project'+ext;
+  document.body.appendChild(a); a.click(); a.remove();
+  document.getElementById('foot').textContent = 'Project saved: ' + nm + '_project' + ext;
+}
+async function openProject(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  try{
+    let json;
+    if(f.name.toLowerCase().endsWith('.zip')){
+      if(!window.JSZip) throw new Error('ZIP reader not loaded');
+      const zip = await JSZip.loadAsync(f);
+      const pf = zip.file('project.json'); if(!pf) throw new Error('project.json not found in zip');
+      json = await pf.async('string');
+    } else { json = await f.text(); }
+    const obj = JSON.parse(json);
+    populate(obj.data || obj);
+    document.getElementById('foot').textContent = 'Project opened — continue editing.';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }catch(e){ alert('Open failed: ' + e.message); }
+  ev.target.value='';
 }
 // 시작: 템플릿 상태 확인 + 기본 본문 블록 1개
 fillVi();
