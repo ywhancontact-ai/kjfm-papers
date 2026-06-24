@@ -404,17 +404,42 @@ def _fill_abstract_box(doc, abs_el, abstract, kw_en, kw_ko, jel, fix=False):
     addp('', S_ABS_TEXT)   # JEL 아래 빈 줄 1개
 
 
+_HYP_RE = re.compile(r'^(H\s?\d+[a-z]?(?:[-.]\d+)?)\s*([:：.])\s*(.*)$', re.I)
+
+
 def add_lines(doc, text, style, fix=False):
-    """text를 줄 단위로 나눠 각 줄을 style 단락으로 추가. 빈 줄은 건너뜀."""
+    """text를 줄 단위로 나눠 각 줄을 style 단락으로 추가. 빈 줄은 건너뜀.
+    가설(H1:/H2: …)은 따로: 내어쓰기 + 라벨('H1:') 굵게, 가설 묶음 앞뒤에 빈 줄."""
     if not text:
         return
+    in_hyp = [False]
+
+    def close_hyp():
+        if in_hyp[0]:
+            doc.add_paragraph('', style=S_BLANK)   # 가설 묶음 뒤 빈 줄
+            in_hyp[0] = False
+
     for line in text.replace('\r\n', '\n').split('\n'):
         line = line.strip()
         if not line:
             continue
         if fix:
             line = normalize_spacing(line)
-        doc.add_paragraph(line, style=style)
+        m = _HYP_RE.match(line)
+        if m:
+            if not in_hyp[0]:
+                doc.add_paragraph('', style=S_BLANK)   # 가설 묶음 앞 빈 줄
+                in_hyp[0] = True
+            p = doc.add_paragraph(style=style)
+            pf = p.paragraph_format
+            pf.left_indent = Cm(0.7); pf.first_line_indent = Cm(-0.7)   # 내어쓰기
+            lab = p.add_run(m.group(1) + m.group(2)); lab.bold = True   # 'H1:' 굵게
+            if m.group(3):
+                p.add_run(' ' + m.group(3))
+        else:
+            close_hyp()
+            doc.add_paragraph(line, style=style)
+    close_hyp()
 
 
 def add_figure(doc, block):
@@ -979,7 +1004,10 @@ _TITLE_STYLES = ('Title_English', '국문제목', 'Title', 'title')
 
 
 def _is_old_header_table(tbl):
-    """구형 포맷: 표 셀 안에 제목/저자가 스타일째 들어있는 헤더 표인지."""
+    """구형 포맷: 표 셀 안에 제목/저자가 스타일째 들어있는 헤더 표인지.
+    초록 박스(Abstract/Purpose 1x1)는 제외 — 박스 안 키워드가 저자 스타일이어도 헤더표 아님."""
+    if _looks_like_abstract_box(tbl):
+        return False
     for row in tbl.rows:
         for cell in row.cells:
             for p in cell.paragraphs:
@@ -1119,6 +1147,8 @@ def _parse_kjfm(items, res):
                         if v:
                             res[k] = v
                     header_done[0] = True        # 심사일 다음은 초록/본문 — 제목영역 종료(제목 누락 방지)
+                elif re.match(r'^\s*(Keywords?|주제어|키워드|Abstract|초록|Purpose|Research\s+design|Findings|Conclusions?|JEL)\b', txt, re.I):
+                    pass                         # 초록/키워드 줄은 제목·저자로 잡지 않음(스타일이 저자여도) — 박스/본문에서 처리
                 elif sty in _AUTHOR_STYLES or _looks_like_author_line(txt):
                     res['authors'] = (res['authors'] + ' ' + txt).strip() if res['authors'] else txt
                 else:                            # 제목(스타일 무관, 한글이면 국문칸)
@@ -1312,7 +1342,11 @@ def parse_docx(file_bytes):
         kept.append(it)
     items = kept
     styles = {it[1] for it in items if it[0] == 'p'}
-    if {'Title_English', '2. 본문', '1. 대제목_국문', '국문제목'} & styles:
+    # KJFM 양식 신호: 표준 스타일 / 저자 스타일 / 초록 박스가 하나라도 있으면 위치기반 _parse_kjfm
+    has_kjfm = bool({'Title_English', '2. 본문', '1. 대제목_국문', '국문제목'} & styles)
+    has_author = bool(set(_AUTHOR_STYLES) & styles)
+    has_absbox = any(it[0] == 'tbl' and _looks_like_abstract_box(it[1]) for it in items)
+    if has_kjfm or has_author or has_absbox:
         _parse_kjfm(items, res)
     else:
         _parse_generic(items, res)
