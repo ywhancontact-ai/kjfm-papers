@@ -103,6 +103,8 @@
   .pv-fcap{ text-align:center; font-weight:bold; font-size:11px; margin:0 0 12px; }
 </style>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.28.0/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script>
+<style>@media print{ body>*:not(#previewOverlay){display:none!important;} #previewOverlay{position:static!important;background:#fff!important;} #previewOverlay .pv-bar{display:none!important;} #previewOverlay .pv-scroll{position:static!important;overflow:visible!important;padding:0!important;} #previewPage{box-shadow:none!important;} }</style>
 </head>
 <body>
 <header>
@@ -256,8 +258,8 @@
 
 <div id="previewOverlay">
   <div class="pv-bar">
-    <span class="pv-bar-title">Preview <span class="hint" style="color:#9bd">— layout preview (the exported .docx is the exact output)</span></span>
-    <button class="pv-close" onclick="closePreview()">Close ✕</button>
+    <span class="pv-bar-title">Preview <span class="hint" style="color:#9bd">— the actual exported document (use Save as PDF to print)</span></span>
+    <button class="pv-close" onclick="savePdf()" style="margin-right:8px">Save as PDF</button><button class="pv-close" onclick="closePreview()">Close ✕</button>
   </div>
   <div class="pv-scroll" id="pvScroll">
     <div id="pvLoading" style="color:#fff; text-align:center; padding:70px 20px; font-size:15px">Generating exact PDF preview…</div>
@@ -712,13 +714,20 @@ function renderPreview(){
   });
   document.getElementById('previewPage').innerHTML = h || '<div class="pv-empty">Nothing entered yet.</div>';
 }
-function openPreview(){
-  renderPreview();
-  document.getElementById('pvLoading').style.display='none';
+async function openPreview(){
+  const ov=document.getElementById('previewOverlay'); ov.style.display='block';
+  const load=document.getElementById('pvLoading'), page=document.getElementById('previewPage');
   document.getElementById('pvPdf').style.display='none';
-  document.getElementById('previewPage').style.display='block';
-  document.getElementById('previewOverlay').style.display='block';
+  page.style.display='none'; load.style.display='block'; load.textContent='Rendering exported document… (a few seconds)';
+  try{
+    const data=withNumbers(gather());
+    const bytes=await pyBuild(data);
+    page.innerHTML=''; page.style.display='block'; page.style.maxWidth='none'; page.style.background='transparent'; page.style.boxShadow='none'; page.style.padding='0';
+    await docx.renderAsync(new Blob([bytes]), page, null, {inWrapper:true, ignoreLastRenderedPageBreak:false, experimental:true});
+    load.style.display='none';
+  }catch(e){ load.textContent='Preview failed: '+e.message+'  (Export still works.)'; console.error(e); }
 }
+function savePdf(){ window.print(); }
 function closePreview(){ document.getElementById('previewOverlay').style.display='none'; }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closePreview(); closeReview(); } });
 
