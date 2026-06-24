@@ -3,7 +3,7 @@
 KJFM(한국프랜차이즈경영학회지) 논문을 칸에 붙여넣거나 기존 워드를 올려 **검증된 KJFM 양식 .docx**로 내보내는 **브라우저 웹앱**. 서버 없이 브라우저 안에서 동작합니다.
 
 ## ▶ 바로 쓰기
-**https://ywhancontact-ai.github.io/kjfm-papers-edit/**
+**https://ywhancontact-ai.github.io/kjfm-papers/**
 
 링크만 열면 됩니다 (설치·로그인 불필요). 첫 로딩에 ~20초(브라우저용 파이썬 엔진 다운로드), 이후 빠름.
 
