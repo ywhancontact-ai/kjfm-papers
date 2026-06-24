@@ -63,15 +63,17 @@ COPYRIGHT_TEXT = ("ⓒ Copyright: The Author(s). This is an Open Access article 
 _WNS = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
 
 
-def _add_footnote_ref(paragraph, fid, mark=None):
-    """단락에 각주 참조 추가 — Arial 8pt 위첨자. mark 지정 시 번호 없는 커스텀 마크(ⓒ),
+def _add_footnote_ref(paragraph, fid, mark=None, half_pt='16', superscript=True):
+    """단락에 각주 참조 추가 — TNR. 기본 8pt 위첨자. mark 지정 시 번호 없는 커스텀 마크.
+    half_pt: 글자 크기(반포인트, 8pt=16 / 15.5pt=31). superscript: 위첨자 여부.
     마크 텍스트는 footnoteReference와 같은 run 안에 둔다(Word 호환)."""
     r = paragraph.add_run()
     rpr = r._r.get_or_add_rPr()
     rf = OxmlElement('w:rFonts')
-    rf.set(qn('w:ascii'), 'Arial'); rf.set(qn('w:hAnsi'), 'Arial'); rpr.append(rf)
-    sz = OxmlElement('w:sz'); sz.set(qn('w:val'), '16'); rpr.append(sz)   # 8pt
-    va = OxmlElement('w:vertAlign'); va.set(qn('w:val'), 'superscript'); rpr.append(va)
+    rf.set(qn('w:ascii'), 'Times New Roman'); rf.set(qn('w:hAnsi'), 'Times New Roman'); rpr.append(rf)
+    sz = OxmlElement('w:sz'); sz.set(qn('w:val'), half_pt); rpr.append(sz)
+    if superscript:
+        va = OxmlElement('w:vertAlign'); va.set(qn('w:val'), 'superscript'); rpr.append(va)
     ref = OxmlElement('w:footnoteReference'); ref.set(qn('w:id'), str(fid))
     if mark:
         ref.set(qn('w:customMarkFollows'), '1')
@@ -105,18 +107,18 @@ def _inject_footnotes(docx_bytes, items):
         # 마커: 숫자 각주는 footnoteRef, 커스텀 마크는 마크 텍스트(ⓒ)
         r1 = etree.SubElement(p, _WNS + 'r')
         rpr1 = etree.SubElement(r1, _WNS + 'rPr')
-        rf1 = etree.SubElement(rpr1, _WNS + 'rFonts'); rf1.set(_WNS + 'ascii', 'Arial'); rf1.set(_WNS + 'hAnsi', 'Arial')
+        rf1 = etree.SubElement(rpr1, _WNS + 'rFonts'); rf1.set(_WNS + 'ascii', 'Times New Roman'); rf1.set(_WNS + 'hAnsi', 'Times New Roman')
         etree.SubElement(rpr1, _WNS + 'sz').set(_WNS + 'val', '16')
         if mark:
             mt = etree.SubElement(r1, _WNS + 't'); mt.text = mark
         else:
             etree.SubElement(rpr1, _WNS + 'vertAlign').set(_WNS + 'val', 'superscript')
             etree.SubElement(r1, _WNS + 'footnoteRef')
-        # 본문 텍스트: Arial 8pt
+        # 본문 텍스트: Times New Roman 8pt
         r2 = etree.SubElement(p, _WNS + 'r')
         rpr2 = etree.SubElement(r2, _WNS + 'rPr')
         rf2 = etree.SubElement(rpr2, _WNS + 'rFonts')
-        rf2.set(_WNS + 'ascii', 'Arial'); rf2.set(_WNS + 'hAnsi', 'Arial'); rf2.set(_WNS + 'eastAsia', '맑은 고딕')
+        rf2.set(_WNS + 'ascii', 'Times New Roman'); rf2.set(_WNS + 'hAnsi', 'Times New Roman'); rf2.set(_WNS + 'eastAsia', '맑은 고딕')
         etree.SubElement(rpr2, _WNS + 'sz').set(_WNS + 'val', '16')
         t = etree.SubElement(r2, _WNS + 't')
         t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
@@ -580,10 +582,10 @@ def build_docx(data):
         fid[0] += 1
         return fid[0]
 
-    # 제목 설명각주(*) — 지원·감사 등, 있으면 무조건 포함(번호 없는 * 마크)
+    # 제목 설명각주(*) — 제목의 * 마커는 15.6pt(≈15.5) TNR(제목 크기), 본문 각주는 8pt
     if (data.get('title_note', '') or '').strip() and title_last_p is not None:
         _tnid = next_fid()
-        _add_footnote_ref(title_last_p, _tnid, mark='*')
+        _add_footnote_ref(title_last_p, _tnid, mark='*', half_pt='31', superscript=False)
         fn_items.append((_tnid, data['title_note'].strip(), '*'))
 
     affs = [a.strip() for a in (data.get('affiliations', '') or '').split('\n') if a.strip()]
@@ -605,6 +607,8 @@ def build_docx(data):
     if review:
         doc.add_paragraph('', style=S_DATE_BLANK)    # 게재일 앞 빈 줄
         anchor = doc.add_paragraph(style=S_AUTHOR)
+        anchor.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER   # 게재일 가운데 정렬
+        anchor.paragraph_format.left_indent = Cm(0); anchor.paragraph_format.first_line_indent = Cm(0)
         anchor.add_run(review).font.size = Pt(8)
     if data.get('copyright', True):
         if anchor is None:
