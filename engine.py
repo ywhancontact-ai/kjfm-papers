@@ -122,7 +122,8 @@ def _inject_footnotes(docx_bytes, items):
         etree.SubElement(rpr2, _WNS + 'sz').set(_WNS + 'val', '16')
         t = etree.SubElement(r2, _WNS + 't')
         t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
-        # 커스텀 마크면 마크(ⓒ)가 r1에 있으니 본문에서 선두 ⓒ 제거
+        # 커스텀 마크면 마크(ⓒ)가 r1에 있으니 본문에서 선두 ⓒ 제거. 각주도 * * *→***, 0.X→.X
+        text = _norm_sig_zero(text)
         t.text = ' ' + (text.lstrip('ⓒ© ').strip() if mark else text)
     new_fn = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
     out = io.BytesIO()
@@ -153,6 +154,20 @@ def normalize_spacing(text):
     # 구두점 앞 공백 제거
     t = re.sub(r'\s+([,.\;:?!])', r'\1', t)
     return t.strip()
+
+
+_SIG_SPACE_RE = re.compile(r'(?<=\*)[ \t]+(?=\*)')
+_LEADING_ZERO_RE = re.compile(r'(?<![\w.])(-?)0\.(\d)')
+
+
+def _norm_sig_zero(text):
+    """모든 출력 공통: 유의수준 별표 사이 공백 제거('* * *'→'***') + 선행 0 제거(0.XXX→.XXX).
+    DOI/연도(10.x, 2020.)는 앞이 숫자라 영향 없음."""
+    if not text:
+        return text
+    text = _SIG_SPACE_RE.sub('', text)
+    text = _LEADING_ZERO_RE.sub(r'\1.\2', text)
+    return text
 
 
 def normalize_doi(text):
@@ -379,7 +394,7 @@ def _fill_abstract_box(doc, abs_el, abstract, kw_en, kw_ko, jel, fix=False):
     # 초록: 주제별 줄바꿈 없이 한 단락으로 이어지게. 구조 라벨(Purpose:/Result: 등)만 인라인 굵게.
     abs_lines = [l.strip() for l in (abstract or '').replace('\r\n', '\n').split('\n') if l.strip()]
     if abs_lines:
-        full = ' '.join((normalize_spacing(l) if fix else l) for l in abs_lines)
+        full = _norm_sig_zero(' '.join((normalize_spacing(l) if fix else l) for l in abs_lines))
         ap = cell.add_paragraph()
         if S_ABS_TEXT in avail:
             ap.style = doc.styles[S_ABS_TEXT]
@@ -404,12 +419,15 @@ def _fill_abstract_box(doc, abs_el, abstract, kw_en, kw_ko, jel, fix=False):
     addp('', S_ABS_TEXT)   # JEL 아래 빈 줄 1개
 
 
-_HYP_RE = re.compile(r'^(H\s?\d+[a-z]?(?:[-.]\d+)?)\s*([:：.])\s*(.*)$', re.I)
+_HYP_RE = re.compile(
+    r'^\s*(H\s?\d+[a-z]?(?:[-.]\d+)?|Hypothesis\s+\d+[a-z]?|가설\s*\d+[a-z]?)\s*([:：.)])\s*(.*)$', re.I)
 
 
-def add_lines(doc, text, style, fix=False):
+def add_lines(doc, text, style, fix=False, force_hyp=False):
     """text를 줄 단위로 나눠 각 줄을 style 단락으로 추가. 빈 줄은 건너뜀.
-    가설(H1:/H2: …)은 따로: 내어쓰기 + 라벨('H1:') 굵게, 가설 묶음 앞뒤에 빈 줄."""
+    모든 줄에 _norm_sig_zero('* * *'→'***', 0.X→.X) 적용.
+    가설: H1:/H2:/Hypothesis/가설 줄(또는 force_hyp=가설블록이면 모든 줄)은 내어쓰기,
+    라벨('H1:') 굵게, 가설 묶음 앞뒤에 빈 줄."""
     if not text:
         return
     in_hyp = [False]
@@ -425,17 +443,21 @@ def add_lines(doc, text, style, fix=False):
             continue
         if fix:
             line = normalize_spacing(line)
+        line = _norm_sig_zero(line)                # 모든 줄: * * *→***, 0.X→.X
         m = _HYP_RE.match(line)
-        if m:
+        if m or force_hyp:
             if not in_hyp[0]:
                 doc.add_paragraph('', style=S_BLANK)   # 가설 묶음 앞 빈 줄
                 in_hyp[0] = True
             p = doc.add_paragraph(style=style)
             pf = p.paragraph_format
             pf.left_indent = Cm(0.7); pf.first_line_indent = Cm(-0.7)   # 내어쓰기
-            lab = p.add_run(m.group(1) + m.group(2)); lab.bold = True   # 'H1:' 굵게
-            if m.group(3):
-                p.add_run(' ' + m.group(3))
+            if m:
+                lab = p.add_run(m.group(1) + m.group(2)); lab.bold = True   # 'H1:' 굵게
+                if m.group(3):
+                    p.add_run(' ' + m.group(3))
+            else:
+                p.add_run(line)                    # 라벨 없는 줄도 내어쓰기(가설 블록)
         else:
             close_hyp()
             doc.add_paragraph(line, style=style)
@@ -469,7 +491,7 @@ def add_figure(doc, block):
 
 def _add_caption_note(doc, note):
     """표/그림 아래 주석(Note) 줄 — 8pt, 'Note.' 라벨만 이탤릭."""
-    note = (note or '').strip()
+    note = _norm_sig_zero((note or '').strip())       # * * *→***, 0.X→.X
     if not note:
         return
     p = doc.add_paragraph(style=S_REF)
@@ -499,15 +521,9 @@ def _shade_cell(cell, hex_fill):
     shd.set(qn('w:fill'), hex_fill)
 
 
-_LEADING_ZERO_RE = re.compile(r'(?<![\d.])(-?)0\.(\d)')
-
-
 def _norm_table_cell(s):
-    """표 셀 정규화: '* * *'→'***'(유의수준 별표 사이 공백 제거), 0.XXX→.XXX(선행 0 제거)."""
-    s = (s or '').strip()
-    s = re.sub(r'(?<=\*)[ \t]+(?=\*)', '', s)        # 별표 사이 공백 제거
-    s = _LEADING_ZERO_RE.sub(r'\1.\2', s)            # 0.123 → .123, -0.4 → -.4
-    return s
+    """표 셀 정규화: 공통 _norm_sig_zero('* * *'→'***', 0.XXX→.XXX)."""
+    return _norm_sig_zero((s or '').strip())
 
 
 def _cell_set_bottom(cell):
@@ -592,7 +608,7 @@ def _apply_style_indent(doc, p, style_name):
 def _add_reference(doc, line):
     """참고문헌 1줄 → 10. Refer 단락. franchise APA: DOI 통일 + 학술지명·권 이탤릭.
     권(volume) 위치를 찾아 그 앞 '. ' 이후(학술지명)부터 권 숫자까지만 이탤릭."""
-    line = normalize_doi(line)
+    line = _norm_sig_zero(normalize_doi(line))       # * * *→***, 0.X→.X (DOI/연도 영향 없음)
     p = doc.add_paragraph(style=S_REF)
     _apply_style_indent(doc, p, S_REF)               # 내어쓰기 직접 적용(PDF 렌더용)
     s = e = None
@@ -737,6 +753,8 @@ def build_docx(data):
             flush_blanks(); add_figure(doc, block)
         elif btype == 'table':
             flush_blanks(); add_table(doc, block)
+        elif btype == 'hyp':                         # 가설 블록: 모든 줄을 가설 포맷(내어쓰기·라벨 굵게)
+            flush_blanks(); add_lines(doc, block.get('text', ''), S_BODY, fix=fix, force_hyp=True)
         else:
             flush_blanks(); add_lines(doc, block.get('text', ''), S_BODY, fix=fix)
 
