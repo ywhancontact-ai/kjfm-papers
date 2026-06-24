@@ -114,12 +114,12 @@
 <script>try{ if(!window.JSZip && typeof exports!=="undefined" && exports && exports.JSZip) window.JSZip=exports.JSZip; }catch(e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.28.0/full/pyodide.js"></script>
-<style>/* docx-preview 표를 3선 학술표로(워드 출력과 일치) — check 표는 .docx-wrapper 밖이라 영향 없음 */#previewPage .docx-wrapper table{border-collapse:collapse!important;}#previewPage .docx-wrapper td,#previewPage .docx-wrapper th{border:none!important;}#previewPage .docx-wrapper tr:first-child td,#previewPage .docx-wrapper tr:first-child th{border-top:1.4px solid #000!important;border-bottom:1px solid #000!important;}#previewPage .docx-wrapper tr:last-child td,#previewPage .docx-wrapper tr:last-child th{border-bottom:1.4px solid #000!important;}@media print{ body>*:not(#previewOverlay){display:none!important;} #previewOverlay{position:static!important;background:#fff!important;} #previewOverlay .pv-bar{display:none!important;} #previewOverlay .pv-scroll{position:static!important;overflow:visible!important;padding:0!important;} #previewPage{box-shadow:none!important;} }</style>
+<style>/* docx-preview 표를 3선 학술표로(모든 렌더: Preview/Review/Live) — check 표는 .docx-wrapper 밖이라 영향 없음 */.docx-wrapper table{border-collapse:collapse!important;}.docx-wrapper td,.docx-wrapper th{border:none!important;}.docx-wrapper tr:first-child td,.docx-wrapper tr:first-child th{border-top:1.4px solid #000!important;border-bottom:1px solid #000!important;}.docx-wrapper tr:last-child td,.docx-wrapper tr:last-child th{border-bottom:1.4px solid #000!important;}@media print{ body>*:not(#previewOverlay){display:none!important;} #previewOverlay{position:static!important;background:#fff!important;} #previewOverlay .pv-bar{display:none!important;} #previewOverlay .pv-scroll{position:static!important;overflow:visible!important;padding:0!important;} #previewPage{box-shadow:none!important;} }</style>
 </head>
 <body>
 <header>
   <div>
-    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v40 · 분할실시간편집</span></h1>
+    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v41 · Live정확본·메모하이라이트</span></h1>
     <div class="sub">Runs in your browser — <b>Export to Word</b> → a validated KJFM-format .docx (no server)</div>
   </div>
   <span id="status">Checking template…</span>
@@ -763,11 +763,11 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closePreview(); 
 
 // ── 분할 실시간 편집 (좌:폼 / 우:실시간 미리보기 근사) ──
 let _liveTimer=null;
-function updateLive(){
-  try{
-    renderPreview();                                   // #previewPage 채움(근사 HTML)
-    document.getElementById('livePage').innerHTML = document.getElementById('previewPage').innerHTML;
-  }catch(e){ document.getElementById('livePage').innerHTML='<div class="pv-empty">'+pvEsc(e.message)+'</div>'; }
+async function updateLive(){
+  const el=document.getElementById('livePage');
+  el.style.background='transparent'; el.style.padding='0'; el.style.maxWidth='none'; el.style.boxShadow='none';
+  try{ await renderDocxInto(el); }
+  catch(e){ el.innerHTML='<div class="pv-empty">'+pvEsc(e.message)+'</div>'; }
 }
 function toggleLive(){
   const on = document.body.classList.toggle('live');
@@ -776,7 +776,7 @@ function toggleLive(){
   if(on) updateLive();
 }
 document.addEventListener('input', ()=>{
-  if(document.body.classList.contains('live')){ clearTimeout(_liveTimer); _liveTimer=setTimeout(updateLive, 200); }
+  if(document.body.classList.contains('live')){ clearTimeout(_liveTimer); _liveTimer=setTimeout(updateLive, 800); }
 });
 
 // ── Review + Notes (읽기뷰 + 구역 선택 노트) ──
@@ -791,25 +791,63 @@ function renderNotes(){
   const el=document.getElementById('noteList'); if(!el) return;
   if(!_notes.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;text-align:center;padding:34px 10px;line-height:1.6">아직 노트가 없습니다.<br>왼쪽 문서에서 텍스트를 드래그 선택하고<br><b>＋ 선택 영역에 노트</b>를 누르세요.</div>'; return; }
   el.innerHTML=_notes.map((n,i)=>'<div style="border:1px solid #e8e8ed;border-radius:9px;padding:10px 11px;margin-bottom:9px;background:#fafafc">'+
-    (n.quote?`<div style="font-size:11.5px;color:#0058b0;border-left:3px solid #0066cc;padding-left:8px;margin-bottom:7px;line-height:1.45">${pvEsc(n.quote.slice(0,120))}${n.quote.length>120?'…':''}</div>`:'')+
+    (n.quote?`<div onclick="scrollToHL(${i})" title="문서에서 보기" style="font-size:11.5px;color:#7a5b00;background:#fff6c9;border-left:3px solid #f0c000;padding:5px 8px;margin-bottom:7px;line-height:1.45;border-radius:4px;cursor:pointer">${pvEsc(n.quote.slice(0,120))}${n.quote.length>120?'…':''}</div>`:'')+
     `<textarea data-i="${i}" oninput="updateNote(this)" placeholder="메모…" style="width:100%;border:1px solid #e0e0e5;border-radius:6px;padding:7px 9px;font-size:13px;min-height:48px;resize:vertical;font-family:var(--sans);line-height:1.5">${pvEsc(n.text)}</textarea>`+
     `<div style="text-align:right;margin-top:3px"><button onclick="delNote(${i})" style="border:none;background:none;color:#c0392b;font-size:11.5px;cursor:pointer">삭제</button></div></div>`).join('');
 }
+// 워드/한글 메모식: 선택 영역 노란 하이라이트 + 옆 메모 + 클릭 연동
+function clearHighlights(){
+  document.querySelectorAll('#reviewPaper mark.note-hl').forEach(m=>{
+    const p=m.parentNode; while(m.firstChild) p.insertBefore(m.firstChild,m); p.removeChild(m); if(p.normalize) p.normalize();
+  });
+}
+function _hlOne(root, quote, idx){
+  const q=(quote||'').replace(/\s+/g,' ').trim(); if(q.length<3) return;
+  const probe=q.slice(0,16);
+  const tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while(node=tw.nextNode()){
+    if(node.parentNode && node.parentNode.className==='note-hl') continue;
+    const pos=node.nodeValue.indexOf(probe);
+    if(pos>=0){
+      const end=Math.min(node.nodeValue.length, pos+quote.length);
+      const range=document.createRange(); range.setStart(node,pos); range.setEnd(node,end);
+      const mark=document.createElement('mark'); mark.className='note-hl'; mark.dataset.i=idx;
+      mark.style.cssText='background:#fff2a8;border-radius:2px;cursor:pointer';
+      mark.title='노트로 이동'; mark.onclick=()=>scrollToCard(idx);
+      try{ range.surroundContents(mark); }catch(e){}
+      return;
+    }
+  }
+}
+function applyHighlights(){
+  const root=document.getElementById('reviewPaper'); if(!root) return;
+  clearHighlights();
+  _notes.forEach((n,i)=>{ if(n.quote) _hlOne(root, n.quote, i); });
+}
+function scrollToHL(i){
+  const m=document.querySelector('#reviewPaper mark.note-hl[data-i="'+i+'"]');
+  if(m){ m.scrollIntoView({behavior:'smooth',block:'center'}); const o=m.style.boxShadow; m.style.boxShadow='0 0 0 3px #f59e0b'; setTimeout(()=>{m.style.boxShadow=o;},1100); }
+}
+function scrollToCard(i){
+  const ta=document.querySelector('#noteList textarea[data-i="'+i+'"]');
+  if(ta){ ta.scrollIntoView({behavior:'smooth',block:'center'}); ta.focus(); }
+}
 function addRegionNote(){
-  let sel=''; try{ sel=(window.getSelection?window.getSelection().toString():'').trim(); }catch(e){}
-  _notes.unshift({quote:sel, text:''}); _saveNotes(); renderNotes();
+  let sel=''; try{ sel=(window.getSelection?window.getSelection().toString():'').replace(/\s+/g,' ').trim(); }catch(e){}
+  _notes.unshift({quote:sel, text:''}); _saveNotes(); renderNotes(); applyHighlights();
   const ta=document.querySelector('#noteList textarea'); if(ta) ta.focus();
   try{ window.getSelection().removeAllRanges(); }catch(e){}
 }
 function updateNote(t){ const i=+t.dataset.i; if(_notes[i]){ _notes[i].text=t.value; _saveNotes(); } }
-function delNote(i){ _notes.splice(i,1); _saveNotes(); renderNotes(); }
+function delNote(i){ _notes.splice(i,1); _saveNotes(); renderNotes(); applyHighlights(); }
 async function openReview(){
   document.getElementById('reviewOverlay').style.display='block';
   const paper=document.getElementById('reviewPaper');
   paper.innerHTML='<div class="pv-empty">Rendering document… (a few seconds)</div>';
   paper.style.maxWidth='none'; paper.style.background='transparent'; paper.style.boxShadow='none'; paper.style.padding='0';
   _loadNotes(); renderNotes();
-  try{ await renderDocxInto(paper); }
+  try{ await renderDocxInto(paper); applyHighlights(); }
   catch(e){ paper.innerHTML='<div class="pv-empty">Render failed: '+e.message+'</div>'; }
 }
 function closeReview(){ const o=document.getElementById('reviewOverlay'); if(o) o.style.display='none'; }
