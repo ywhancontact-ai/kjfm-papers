@@ -499,9 +499,50 @@ def _shade_cell(cell, hex_fill):
     shd.set(qn('w:fill'), hex_fill)
 
 
+_LEADING_ZERO_RE = re.compile(r'(?<![\d.])(-?)0\.(\d)')
+
+
+def _norm_table_cell(s):
+    """표 셀 정규화: '* * *'→'***'(유의수준 별표 사이 공백 제거), 0.XXX→.XXX(선행 0 제거)."""
+    s = (s or '').strip()
+    s = re.sub(r'(?<=\*)[ \t]+(?=\*)', '', s)        # 별표 사이 공백 제거
+    s = _LEADING_ZERO_RE.sub(r'\1.\2', s)            # 0.123 → .123, -0.4 → -.4
+    return s
+
+
+def _cell_set_bottom(cell):
+    """셀 아래 가로선(헤더 행 밑줄)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn('w:tcBorders')):
+        tcPr.remove(old)
+    tb = OxmlElement('w:tcBorders')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single'); bottom.set(qn('w:sz'), '8')
+    bottom.set(qn('w:space'), '0'); bottom.set(qn('w:color'), '000000')
+    tb.append(bottom); tcPr.append(tb)
+
+
+def _apa_table_borders(table):
+    """학술 3선 표: 표 위·아래 + 헤더 행 아래 가로선만, 세로선·내부선 없음(PDF·인쇄 적합)."""
+    tblPr = table._tbl.tblPr
+    for old in tblPr.findall(qn('w:tblBorders')):
+        tblPr.remove(old)
+    b = OxmlElement('w:tblBorders')
+    for e in ('top', 'bottom'):
+        el = OxmlElement('w:' + e)
+        el.set(qn('w:val'), 'single'); el.set(qn('w:sz'), '8')
+        el.set(qn('w:space'), '0'); el.set(qn('w:color'), '000000'); b.append(el)
+    for e in ('left', 'right', 'insideH', 'insideV'):
+        el = OxmlElement('w:' + e); el.set(qn('w:val'), 'nil'); b.append(el)
+    tblPr.append(b)
+    if len(table.rows) > 0:
+        for cell in table.rows[0].cells:
+            _cell_set_bottom(cell)
+
+
 def add_table(doc, block):
     """표: 캡션(위, '3. 표') + 탭구분 데이터로 Word 표 생성.
-    제목 행 70% 음영·소제목 행 82% 음영·해당 셀 텍스트 볼드."""
+    3선 학술표(격자 없음)·셀 텍스트 가운데·헤더/소제목 볼드+음영. 0.XXX→.XXX, '* * *'→'***'."""
     cap = block.get('caption', '').strip()
     if cap:
         doc.add_paragraph(cap, style=S_TBL_CAP)
@@ -511,10 +552,6 @@ def add_table(doc, block):
         return
     ncol = max(len(r) for r in rows)
     table = doc.add_table(rows=len(rows), cols=ncol)
-    try:
-        table.style = 'Table Grid'
-    except KeyError:
-        pass
     cell_style = doc.styles[S_TBL_CELL] if S_TBL_CELL in [s.name for s in doc.styles] else None
     for i, r in enumerate(rows):
         nonempty = [j for j in range(ncol) if j < len(r) and r[j].strip()]
@@ -522,10 +559,11 @@ def add_table(doc, block):
         is_sub = (not is_header) and nonempty == [0]   # 첫 칸만 채워진 행 = 소제목(그룹머리)
         for j in range(ncol):
             cell = table.cell(i, j)
-            cell.text = r[j].strip() if j < len(r) else ''
+            cell.text = _norm_table_cell(r[j]) if j < len(r) else ''
             for p in cell.paragraphs:
                 if cell_style is not None:
                     p.style = cell_style
+                p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER   # 셀 텍스트 가운데
                 if is_header or is_sub:
                     for run in p.runs:
                         run.bold = True
@@ -533,8 +571,22 @@ def add_table(doc, block):
                 _shade_cell(cell, HDR_FILL)
             elif is_sub:
                 _shade_cell(cell, SUB_FILL)
+    _apa_table_borders(table)                         # 3선 표(격자 제거)
     _add_caption_note(doc, block.get('note', ''))   # 표 아래 Note란
     doc.add_paragraph('', style=S_BODY)  # 표 뒤 간격
+
+
+def _apply_style_indent(doc, p, style_name):
+    """명명 스타일의 들여쓰기를 단락에 직접 복사 — docx-preview/PDF가 스타일 들여쓰기를
+    무시해도 내어쓰기(hanging indent)가 렌더되게."""
+    try:
+        st = doc.styles[style_name].paragraph_format
+    except KeyError:
+        return
+    if st.left_indent is not None:
+        p.paragraph_format.left_indent = st.left_indent
+    if st.first_line_indent is not None:
+        p.paragraph_format.first_line_indent = st.first_line_indent
 
 
 def _add_reference(doc, line):
@@ -542,6 +594,7 @@ def _add_reference(doc, line):
     권(volume) 위치를 찾아 그 앞 '. ' 이후(학술지명)부터 권 숫자까지만 이탤릭."""
     line = normalize_doi(line)
     p = doc.add_paragraph(style=S_REF)
+    _apply_style_indent(doc, p, S_REF)               # 내어쓰기 직접 적용(PDF 렌더용)
     s = e = None
     m = re.search(r',\s*(\d+)\s*[\(,]', line)   # ", 38(" 또는 ", 38,"
     if m:
