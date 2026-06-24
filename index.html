@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KJFM papers edit</title>
+<style>
+  /* ── Apple 디자인 (awesome-design-md / apple) ── Action Blue + SF Pro + 카드 갤러리 ── */
+  :root{ --accent:#0066cc; --accent-focus:#0071e3; --ink:#1d1d1f; --muted:#6e6e73;
+         --line:#d2d2d7; --hair:#e8e8ed; --bg:#f5f5f7; --pearl:#fafafc;
+         --display:"SF Pro Display",-apple-system,system-ui,"Malgun Gothic",sans-serif;
+         --sans:-apple-system,"SF Pro Text",system-ui,"Malgun Gothic","맑은 고딕",sans-serif; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+        -webkit-font-smoothing:antialiased; letter-spacing:-.01em; }
+  header{ background:rgba(255,255,255,.85); backdrop-filter:saturate(180%) blur(20px);
+          border-bottom:1px solid var(--hair); padding:18px 32px; position:sticky; top:0; z-index:10;
+          display:flex; align-items:center; justify-content:space-between; }
+  header h1{ font-family:var(--display); font-weight:600; font-size:21px; margin:0; letter-spacing:-.022em; }
+  header .sub{ font-size:12px; color:var(--muted); margin-top:3px; letter-spacing:0; }
+  #status{ font-size:12px; padding:6px 13px; border-radius:9999px; font-weight:600; }
+  .ok{ background:#e8f1fc; color:var(--accent); }  .bad{ background:#fdeaea; color:#c62828; }
+  main{ max-width:940px; margin:0 auto; padding:36px 24px 140px; }
+  .card{ background:#fff; border:1px solid var(--hair); border-radius:18px;
+         padding:30px 34px; margin-bottom:22px; box-shadow:0 1px 1px rgba(0,0,0,.02); }
+  .card h2{ font-family:var(--display); font-weight:600; font-size:19px; margin:0 0 20px;
+            color:var(--ink); letter-spacing:-.018em; padding-bottom:14px; border-bottom:1px solid var(--hair); }
+  label{ display:block; font-size:13px; color:#1d1d1f; margin:16px 0 7px; font-weight:600; letter-spacing:-.01em; }
+  .hint{ font-weight:400; color:var(--muted); font-size:11.5px; }
+  input[type=text], input[type=date], input[type=number], input[type=month], textarea, select{
+         width:100%; border:1px solid var(--line); border-radius:12px;
+         padding:11px 14px; font-size:14px; font-family:inherit; resize:vertical; background:#fff; transition:.15s; color:var(--ink);
+         height:42px; line-height:1.2; }
+  textarea{ height:auto; }
+  input[type=date]{ -webkit-appearance:none; appearance:none; }
+  input[type=date]::-webkit-calendar-picker-indicator{ cursor:pointer; opacity:.55; }
+  input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--accent-focus);
+         box-shadow:0 0 0 4px rgba(0,113,227,.15); }
+  textarea{ min-height:74px; line-height:1.6; }
+  .row{ display:flex; gap:16px; } .row>div{ flex:1; }
+  /* 본문 블록 */
+  #blocks .block, #appendix-blocks .block{ border:1px solid var(--hair); border-radius:14px;
+         padding:16px; margin-bottom:11px; background:var(--pearl); }
+  .block-bar{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .block-bar select{ border:1px solid var(--line); border-radius:9px; padding:6px 10px;
+         font-size:12.5px; font-family:inherit; width:auto; }
+  .tag{ font-size:11px; color:var(--muted); margin-left:auto; }
+  .iconbtn{ border:1px solid var(--line); background:#fff; border-radius:9px; cursor:pointer;
+         width:30px; height:30px; font-size:13px; color:var(--muted); transition:.15s; }
+  .iconbtn:hover{ background:#f5f5f7; border-color:var(--accent); color:var(--accent); }
+  .addrow{ display:flex; gap:9px; flex-wrap:wrap; margin-top:10px; }
+  .addbtn{ border:none; background:#eef0f3; color:var(--accent);
+         border-radius:9999px; padding:9px 17px; font-size:13px; cursor:pointer; font-weight:600; transition:.15s; letter-spacing:-.01em; }
+  .addbtn:hover{ background:#e3e6ea; }
+  .checkline{ display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink); margin-top:10px; }
+  .checkline input[type=checkbox]{ accent-color:var(--accent); width:16px; height:16px; }
+  /* 하단 바 */
+  footer{ position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,.85);
+          backdrop-filter:saturate(180%) blur(20px);
+          border-top:1px solid var(--hair); padding:14px 24px; display:flex;
+          align-items:center; justify-content:space-between; gap:14px; }
+  footer .info{ font-size:12px; color:var(--muted); }
+  .export{ background:var(--accent); color:#fff; border:none; border-radius:9999px;
+          padding:13px 30px; font-size:15px; font-weight:600; cursor:pointer; transition:.15s; letter-spacing:-.01em; }
+  .export:hover{ background:#0058b0; } .export:active{ transform:scale(.97); } .export:disabled{ opacity:.4; cursor:default; }
+  .ghost{ background:#eef0f3; border:none; border-radius:9999px;
+          padding:12px 20px; font-size:13.5px; cursor:pointer; color:var(--accent); font-weight:600; transition:.15s; }
+  .ghost:hover{ background:#e3e6ea; }
+  /* 미리보기 오버레이 */
+  #previewOverlay{ display:none; position:fixed; inset:0; z-index:100; background:rgba(20,24,30,.78); }
+  .pv-bar{ height:50px; background:#1a1f29; color:#fff; display:flex; align-items:center;
+           justify-content:space-between; padding:0 20px; }
+  .pv-bar-title{ font-size:14px; }
+  .pv-close{ background:#fff; color:#1a1f29; border:none; border-radius:8px; padding:8px 16px;
+             font-size:13px; cursor:pointer; font-weight:600; }
+  .pv-scroll{ position:absolute; top:50px; bottom:0; left:0; right:0; overflow:auto; padding:30px 10px; }
+  .pv-page{ background:#fff; max-width:680px; margin:0 auto; padding:54px 60px; border-radius:3px;
+            box-shadow:0 8px 40px rgba(0,0,0,.4);
+            font-family:"Times New Roman","맑은 고딕",serif; color:#111; line-height:1.5; }
+  .pv-page p{ margin:0 0 7px; }
+  .pv-title-en{ text-align:center; font-weight:bold; font-size:18px; line-height:1.3; margin-bottom:2px; }
+  .pv-title-ko{ text-align:center; font-weight:bold; font-size:15px; line-height:1.3; }
+  .pv-author{ text-align:center; font-size:12px; margin-top:10px; }
+  .pv-review{ text-align:center; font-size:10px; color:#666; margin-bottom:16px; }
+  .pv-issn{ text-align:right; font-size:9px; color:var(--muted); margin-bottom:14px; border-bottom:1px solid #ccc; padding-bottom:4px; }
+  .pv-absbox{ border:1px solid #333; padding:12px 16px; margin:6px 0 16px; }
+  .pv-abs-title{ text-align:center; font-weight:bold; font-size:12px; margin-bottom:6px; }
+  .pv-abstract{ text-align:justify; font-size:11px; margin-bottom:5px; }
+  .pv-kw{ font-size:11px; margin-bottom:3px; }
+  .pv-h1{ font-weight:bold; font-size:15px; margin:16px 0 7px; }
+  .pv-h2{ font-weight:bold; font-size:13.5px; margin:13px 0 6px; }
+  .pv-h3{ font-weight:bold; font-size:12.5px; margin:11px 0 5px; }
+  .pv-h4{ font-weight:bold; font-style:italic; font-size:12px; margin:9px 0 5px; }
+  .pv-body{ text-align:justify; font-size:12.5px; text-indent:1.4em; }
+  .pv-refhead{ font-weight:bold; font-size:13px; margin:18px 0 8px; }
+  .pv-ref{ font-size:11px; padding-left:1.6em; text-indent:-1.6em; }
+  .pv-empty{ color:#bbb; text-align:center; font-style:italic; padding:40px; }
+  .pv-tcap{ font-size:11px; margin:14px 0 4px; }
+  .pv-table{ border-collapse:collapse; width:100%; margin:0 0 6px; font-size:11px; }
+  .pv-table td{ border:1px solid #888; padding:4px 7px; text-align:center; }
+  .pv-figwrap{ text-align:center; margin:14px 0 4px; }
+  .pv-fig{ max-width:80%; max-height:320px; }
+  .pv-fcap{ text-align:center; font-weight:bold; font-size:11px; margin:0 0 12px; }
+</style>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.28.0/full/pyodide.js"></script>
+</head>
+<body>
+<header>
+  <div>
+    <h1>KJFM papers edit <span style="font-size:11px; color:#fff; background:#0066cc; border:1px solid #0066cc; border-radius:10px; padding:2px 8px; vertical-align:middle">v34</span></h1>
+    <div class="sub">Runs in your browser — <b>Export to Word</b> → a validated KJFM-format .docx (no server)</div>
+  </div>
+  <span id="status">Checking template…</span>
+</header>
+
+<main>
+  <div class="card" style="background:#f5f7fb">
+    <h2>File Import <span class="hint" style="color:var(--muted)">(optional — auto-fill fields from an existing Word file)</span></h2>
+    <p class="hint" style="margin-top:-4px">Upload an existing <b>.docx</b> to auto-split title, authors, abstract, body, and references into the fields below. Auto-fill is an estimate, so <b>always review and edit</b>. (More accurate for KJFM-format documents.)</p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+      <input type="file" id="importFile" accept=".docx">
+      <button class="addbtn" onclick="importDocx()">Import &amp; auto-fill</button>
+      <span id="importMsg" class="hint"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Title · Authors</h2>
+    <label>Paper language <span class="hint">Korean (Korean body) / English (English body) — auto-detected on import</span></label>
+    <select id="lang" style="width:auto; border:1px solid #d1d5db; border-radius:5px; padding:9px 12px; font-size:13px; font-family:inherit">
+      <option value="ko">Korean paper (Korean body + English abstract)</option>
+      <option value="en">English paper (English body)</option>
+    </select>
+    <label>English Title <span class="hint">(subtitle on a new line) → Title_English</span></label>
+    <textarea id="title_en" placeholder="Main title of the paper&#10;: Subtitle (if any)"></textarea>
+    <label>Korean Title <span class="hint">(subtitle on a new line) → 국문제목</span></label>
+    <textarea id="title_ko" placeholder="Korean title&#10;: Subtitle (if any)"></textarea>
+    <label>Authors <span class="hint">→ role marker after the Korean name for the filename: (주)/(공)/(교)</span></label>
+    <input type="text" id="authors" placeholder="Gildong HONG 홍길동(주), Younghee KIM 김영희(교)">
+    <div class="row">
+      <div style="flex:0 0 90px"><label>No. <span class="hint">filename</span></label><input type="text" id="seq" placeholder="6"></div>
+      <div><label>Received</label><input type="text" id="received" placeholder="Feb 12, 2026"></div>
+      <div><label>Revised</label><input type="text" id="revised" placeholder="Feb 20, 2026"></div>
+      <div><label>Accepted</label><input type="text" id="accepted" placeholder="Feb 27, 2026"></div>
+    </div>
+    <p class="hint" style="margin-top:6px">Filename: <b>{No.}_KJFM_{submitted}_{accepted}_{authors(role)}</b> e.g. 6_KJFM_260308_260329_이도경(주) 민자경(교)</p>
+    <label>DOI <span class="hint">Top table — part after <b>10.21871/KJFM.</b> only (e.g. 2026.6.17.2.30). Blank → XXXX</span></label>
+    <input type="text" id="doi" placeholder="2026.6.17.2.30">
+    <div class="checkline" style="margin-top:10px">
+      <input type="checkbox" id="running_head" checked>
+      <label for="running_head" style="margin:0; font-weight:400; cursor:pointer">Auto running head — odd=authors/journal, even=paper title, TNR 8pt italic <span class="hint">papers start on an odd page</span></label>
+    </div>
+    <div class="row" style="margin-top:6px; align-items:flex-end">
+      <div style="flex:0 0 100px"><label>Start page <span class="hint">odd</span></label><input type="text" id="start_page" placeholder="1" value="1" oninput="syncDoiFromFields();syncPageRange()"></div>
+      <div style="flex:0 0 170px">
+        <label>Vol(Issue) <span class="hint">pick (1–100)</span></label>
+        <button type="button" id="viBtn" onclick="toggleVi()" style="width:100%; height:42px; text-align:left; padding:0 14px; background:#fff; border:1px solid var(--line); border-radius:12px; font-size:14px; color:var(--ink); cursor:pointer">Select…</button>
+        <input type="hidden" id="vol_issue">
+        <div id="viPicker" style="display:none; gap:8px; margin-top:6px">
+          <select id="viVol" onchange="applyVi()" style="flex:1"><option value="">Vol</option></select>
+          <select id="viIss" onchange="applyVi()" style="flex:1"><option value="">Iss</option></select>
+        </div>
+      </div>
+      <div style="flex:0 0 150px"><label>Date <span class="hint">calendar → year·DOI</span></label><input type="date" id="year_date" onchange="syncDateCal()"><input type="hidden" id="year"></div>
+      <div style="flex:0 0 90px"><label>Total pages</label><input type="text" id="total_pages" placeholder="13" oninput="syncPageRange()"></div>
+      <div style="flex:0 0 110px"><label>Page range <span class="hint">auto</span></label><input type="text" id="pages" placeholder="1-13" readonly style="background:#eef0f3"></div>
+    </div>
+    <label>Author affiliations (footnotes) <span class="hint">one per line in author order → footnotes ¹²</span></label>
+    <textarea id="affiliations" placeholder="First Author's Affiliation: Professor of ... University, Dept. of ..., Email: ...&#10;Corresponding Author's Affiliation: ..."></textarea>
+    <label>Title note <span class="hint">* footnote on the title (funding/acknowledgment) — always included if filled</span></label>
+    <input type="text" id="title_note" placeholder="This work was supported by ...">
+
+    <div class="checkline">
+      <input type="checkbox" id="copyright" checked>
+      <label for="copyright" style="margin:0; font-weight:400; cursor:pointer">Include ⓒ Copyright (Open Access) notice <span class="hint">— required; printed below the abstract (not a footnote)</span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Abstract Box <span class="hint" style="color:var(--muted)">(box below the dates — one English abstract + keywords + JEL)</span></h2>
+    <label>Abstract (English) <span class="hint">Purpose / Research design / Result / Conclusions structure recommended</span></label>
+    <textarea id="abstract_en" style="min-height:120px" placeholder="Purpose: ...&#10;Research design, data, and methodology: ...&#10;Result: ...&#10;Conclusions: ..."></textarea>
+    <label>Keywords (English) <span class="hint">comma-separated</span></label>
+    <input type="text" id="keywords_en" placeholder="keyword1, keyword2, keyword3">
+    <label>Keywords (Korean) <span class="hint">comma-separated</span></label>
+    <input type="text" id="keywords_ko" placeholder="keyword1, keyword2, keyword3">
+    <label>JEL Classification Code <span class="hint">(optional)</span></label>
+    <input type="text" id="jel" placeholder="M31, M30, D12">
+  </div>
+
+  <div class="card">
+    <h2>Body</h2>
+    <p class="hint" style="margin-top:-4px">Add headings (1 · 1.1 · 1.1.1 · 1.1.1.1) and body text in order. Line breaks within a field split paragraphs.</p>
+    <div class="checkline" style="margin:0 0 10px">
+      <input type="checkbox" id="auto_number" checked>
+      <label for="auto_number" style="margin:0; font-weight:400; cursor:pointer">
+        Auto-number headings <span class="hint">(auto-assigns 1, 1.1, 1.1.1 … by level. Off = keep your own numbers)</span>
+      </label>
+    </div>
+    <div id="blocks"></div>
+    <div class="addrow">
+      <button class="addbtn" onclick="addBlock('h1')">+ Heading 1</button>
+      <button class="addbtn" onclick="addBlock('h2')">+ Heading 1.1</button>
+      <button class="addbtn" onclick="addBlock('h3')">+ Heading 1.1.1</button>
+      <button class="addbtn" onclick="addBlock('h4')">+ Heading 1.1.1.1</button>
+      <button class="addbtn" onclick="addBlock('body')">+ Body</button>
+      <button class="addbtn" style="border-color:#d2d2d7; background:#f5f5f7" onclick="addTableBlock()">+ Table</button>
+      <button class="addbtn" style="border-color:#d2d2d7; background:#f5f5f7" onclick="addFigureBlock()">+ Figure</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>References</h2>
+    <label>References <span class="hint">one per line → References head + 10. Refer</span></label>
+    <textarea id="references" style="min-height:120px" placeholder="Kim, Y. (2026). ...&#10;Lee, H. (2026). ..."></textarea>
+  </div>
+
+  <div class="card" id="appendixCard">
+    <h2>Appendix <span class="hint" style="color:var(--muted)">— after References, new page, single column, printed in order. (Separate section from References)</span></h2>
+    <div id="appendix-blocks"></div>
+    <div class="addrow">
+      <button class="addbtn" onclick="addApxCap()">+ Appendix caption</button>
+      <button class="addbtn" onclick="addApxText()">+ Description/Note</button>
+      <button class="addbtn" style="border-color:#d2d2d7; background:#f5f5f7" onclick="addApxTable()">+ Table</button>
+      <button class="addbtn" style="border-color:#d2d2d7; background:#f5f5f7" onclick="addApxFigure()">+ Figure</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="checkline">
+      <input type="checkbox" id="two_column" checked>
+      <label for="two_column" style="margin:0; font-weight:400; cursor:pointer">
+        Two-column body layout <span class="hint">(KJFM standard: title/abstract full-width single column; body in two columns)</span>
+      </label>
+    </div>
+    <div class="checkline">
+      <input type="checkbox" id="fix_spacing" checked>
+      <label for="fix_spacing" style="margin:0; font-weight:400; cursor:pointer">
+        Auto-fix symbol spacing in body/abstract <span class="hint">(spaces around brackets, = ~ + × etc.; hyphenated words & DOI untouched)</span>
+      </label>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span class="info" id="foot">KJFM standard format applied</span>
+  <div style="display:flex; gap:10px">
+    <button class="ghost" onclick="saveDraft()">Save draft</button>
+    <button class="ghost" onclick="loadDraft()">Load draft</button>
+    <button class="ghost" onclick="checkCitations()">Check refs</button>
+    <button class="ghost" onclick="openPreview()">Preview</button>
+    <button class="export" id="exportBtn" onclick="exportDocx()">Export to Word</button>
+  </div>
+</footer>
+
+<div id="previewOverlay">
+  <div class="pv-bar">
+    <span class="pv-bar-title">Preview <span class="hint" style="color:#9bd">— layout preview (the exported .docx is the exact output)</span></span>
+    <button class="pv-close" onclick="closePreview()">Close ✕</button>
+  </div>
+  <div class="pv-scroll" id="pvScroll">
+    <div id="pvLoading" style="color:#fff; text-align:center; padding:70px 20px; font-size:15px">Generating exact PDF preview…</div>
+    <iframe id="pvPdf" style="display:none; width:100%; height:100%; border:none; background:#fff; border-radius:4px"></iframe>
+    <div class="pv-page" id="previewPage" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ── 브라우저 파이썬 엔진(Pyodide) — 서버 없이. 출력은 서버판과 byte 동일(검증됨) ──
+let _py=null;
+const _setStatus=(t,bad)=>{const el=document.getElementById('status'); if(el){el.textContent=t; el.className=bad?'bad':'ok';}};
+const _pyReady=(async()=>{
+  try{
+    _setStatus('Loading engine… (first time ~20s)');
+    const py=await loadPyodide();
+    await py.loadPackage(["micropip","lxml"]);
+    await py.runPythonAsync('import micropip\nawait micropip.install("python-docx")');
+    const eng=await (await fetch('engine.py')).text();
+    const tpl=new Uint8Array(await (await fetch('template.docx')).arrayBuffer());
+    py.FS.writeFile('/engine.py', eng);
+    py.FS.writeFile('/template.docx', tpl);
+    await py.runPythonAsync("import sys\nsys.path.insert(0,'/')\nimport engine\nengine.TEMPLATE='/template.docx'");
+    _py=py; _setStatus('✓ Ready');
+  }catch(e){ _setStatus('⚠ Engine load failed', true); console.error(e); throw e; }
+})();
+async function pyBuild(data){
+  await _pyReady; _py.globals.set('_dj', JSON.stringify(data));
+  await _py.runPythonAsync("import json,engine\n_b=engine.build_docx(json.loads(_dj))\nopen('/out.docx','wb').write(_b)");
+  return _py.FS.readFile('/out.docx');
+}
+async function pyFilename(data){
+  await _pyReady; _py.globals.set('_dj', JSON.stringify(data));
+  return await _py.runPythonAsync("import json,engine\nengine.make_filename(json.loads(_dj))");
+}
+async function pyParse(bytes){
+  await _pyReady; _py.FS.writeFile('/up.docx', bytes);
+  const out=await _py.runPythonAsync("import json,engine\njson.dumps(engine.parse_docx(open('/up.docx','rb').read()),ensure_ascii=False)");
+  return JSON.parse(out);
+}
+async function pyCheck(data){
+  await _pyReady; _py.globals.set('_dj', JSON.stringify(data));
+  const out=await _py.runPythonAsync("import json,engine\njson.dumps(engine.check_citations(json.loads(_dj)),ensure_ascii=False)");
+  return JSON.parse(out);
+}
+let blockSeq = 0;
+// ── 부록(Appendix): 참고문헌과 별도 편집 섹션 ──
+function apxBar(label){
+  return `<div class="block-bar">
+      <span class="tag" style="margin-left:0; color:#0058b0; font-weight:700">${label}</span>
+      <button class="iconbtn" title="Up" onclick="moveBlock(this,-1)">▲</button>
+      <button class="iconbtn" title="Down" onclick="moveBlock(this,1)">▼</button>
+      <button class="iconbtn" title="Delete" onclick="this.closest('.block').remove()">✕</button>
+    </div>`;
+}
+function apxAdd(html, atype, bg){
+  const wrap = document.getElementById('appendix-blocks');
+  const div = document.createElement('div');
+  div.className = 'block'; div.dataset.atype = atype;
+  if(bg) div.style.background = bg;
+  div.innerHTML = html;
+  wrap.appendChild(div);
+  return div;
+}
+function addApxCap(text){
+  const d = apxAdd(apxBar('Appendix caption') +
+    `<input type="text" class="apx-cap" placeholder="e.g. Appendix 1: Measurement model from CFA">`, 'cap');
+  if(text) d.querySelector('.apx-cap').value = text; return d;
+}
+function addApxText(text){
+  const d = apxAdd(apxBar('¶ Description/Note') +
+    `<textarea class="apx-text" placeholder="Description or note (Note. ...)" style="min-height:54px"></textarea>`, 'text');
+  if(text) d.querySelector('.apx-text').value = text; return d;
+}
+function addApxTable(data){
+  const d = apxAdd(apxBar('표') +
+    `<textarea class="apx-data" placeholder="Paste from Excel/Sheets (cell=tab, row=newline)" style="min-height:80px; font-family:monospace; font-size:12px"></textarea>`, 'table', '#fafafc');
+  if(data) d.querySelector('.apx-data').value = data; return d;
+}
+function addApxFigure(image){
+  const d = apxAdd(apxBar('그림') +
+    `<div style="display:flex; gap:12px; align-items:flex-start"><div style="flex:1">
+      <input type="file" class="apx-figfile" accept="image/*" onchange="onApxFigPick(this)"></div>
+      <img class="apx-thumb" style="max-width:140px; max-height:100px; border:1px solid var(--line); border-radius:6px; display:${image?'block':'none'}" src="${image||''}"></div>`, 'figure', '#fafafc');
+  d.dataset.image = image || ''; return d;
+}
+function onApxFigPick(input){
+  const f = input.files[0]; if(!f) return;
+  const block = input.closest('.block'); const r = new FileReader();
+  r.onload = e => { block.dataset.image = e.target.result;
+    const t = block.querySelector('.apx-thumb'); t.src = e.target.result; t.style.display='block'; };
+  r.readAsDataURL(f);
+}
+function collectAppendix(){
+  return [...document.querySelectorAll('#appendix-blocks .block')].map(b=>{
+    const a = b.dataset.atype;
+    if(a==='table')  return {type:'table', data:b.querySelector('.apx-data').value};
+    if(a==='figure') return {type:'figure', image:b.dataset.image||''};
+    if(a==='cap')    return {type:'cap', text:b.querySelector('.apx-cap').value};
+    return {type:'cap', text:b.querySelector('.apx-text').value};
+  }).filter(x=> (x.text&&x.text.trim()) || (x.data&&x.data.trim()) || x.image);
+}
+function renderAppendix(items){
+  document.getElementById('appendix-blocks').innerHTML='';
+  (items||[]).forEach(x=>{
+    if(x.type==='table') addApxTable(x.data);
+    else if(x.type==='figure') addApxFigure((x.image||'').startsWith('data:')?x.image:('data:image/png;base64,'+(x.image||'')));
+    else addApxCap(x.text);   // cap/note 모두 캡션칸(편집 가능)
+  });
+}
+const BLOCK_LABELS = {h1:'Heading 1', h2:'Heading 1.1', h3:'Heading 1.1.1', h4:'Heading 1.1.1.1', body:'Body'};
+function onBlockType(sel){
+  const b = sel.closest('.block');
+  b.dataset.type = sel.value;
+  b.querySelector('.tag').textContent = BLOCK_LABELS[sel.value] || '';
+}
+function placeBlock(div, afterEl){
+  const wrap = document.getElementById('blocks');
+  if(afterEl && afterEl.parentNode === wrap) afterEl.insertAdjacentElement('afterend', div);
+  else wrap.appendChild(div);
+}
+function addBlock(type, text, afterEl){
+  const div = document.createElement('div');
+  div.className = 'block'; div.dataset.kind = 'block';
+  const id = 'blk' + (blockSeq++);
+  const opts = Object.entries(BLOCK_LABELS)
+    .map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  div.innerHTML = `
+    <div class="block-bar">
+      <select onchange="onBlockType(this)">${opts}</select>
+      <span class="tag">${BLOCK_LABELS[type]||''}</span>
+      <button class="iconbtn" title="Up" onclick="moveBlock(this,-1)">▲</button>
+      <button class="iconbtn" title="Down" onclick="moveBlock(this,1)">▼</button>
+      <button class="iconbtn ins" title="Insert below" onclick="toggleInsert(this)">＋</button>
+      <button class="iconbtn" title="Delete" onclick="this.closest('.block').remove()">✕</button>
+    </div>
+    <textarea id="${id}" placeholder="${type==='body'?'Paste body text':'Enter a heading (auto-number on: title only, no number)'}"></textarea>`;
+  div.dataset.type = type;
+  placeBlock(div, afterEl);
+  div.querySelector('select').value = type;
+  if(text) div.querySelector('textarea').value = text;
+  return div;
+}
+function moveBlock(btn, dir){
+  const b = btn.closest('.block');
+  if(dir<0 && b.previousElementSibling) b.parentNode.insertBefore(b, b.previousElementSibling);
+  if(dir>0 && b.nextElementSibling) b.parentNode.insertBefore(b.nextElementSibling, b);
+}
+// 이 블록 Insert below 메뉴(블록 유형 버튼들) 토글
+function toggleInsert(btn){
+  const block = btn.closest('.block');
+  const nxt = block.nextElementSibling;
+  if(nxt && nxt.classList.contains('insert-row')){ nxt.remove(); return; }
+  const row = document.createElement('div');
+  row.className = 'insert-row addrow';
+  row.style.cssText = 'margin:2px 0 12px; padding:8px 10px; background:#f5f5f7; border:1px dashed #d2d2d7; border-radius:6px';
+  row.innerHTML = `<span style="font-size:11.5px;color:#0058b0;align-self:center;margin-right:4px">↳ Insert here:</span>
+    <button class="addbtn" onclick="insertAt(this,'h1')">Heading 1</button>
+    <button class="addbtn" onclick="insertAt(this,'h2')">Heading 1.1</button>
+    <button class="addbtn" onclick="insertAt(this,'h3')">Heading 1.1.1</button>
+    <button class="addbtn" onclick="insertAt(this,'h4')">Heading 1.1.1.1</button>
+    <button class="addbtn" onclick="insertAt(this,'body')">Body</button>
+    <button class="addbtn" onclick="insertAt(this,'table')">Table</button>
+    <button class="addbtn" onclick="insertAt(this,'figure')">Figure</button>`;
+  block.insertAdjacentElement('afterend', row);
+}
+function insertAt(btn, type){
+  const row = btn.closest('.insert-row');
+  const anchor = row.previousElementSibling;   // 삽입 메뉴 바로 위 블록 뒤에 끼움
+  if(type==='table') addTableBlock('', '', '', anchor);
+  else if(type==='figure') addFigureBlock('', '', '', anchor);
+  else addBlock(type, '', anchor);
+  row.remove();
+}
+function blockBar(label){
+  return `<div class="block-bar">
+      <span class="tag" style="margin-left:0; color:#0058b0; font-weight:700">${label}</span>
+      <button class="iconbtn" title="Up" onclick="moveBlock(this,-1)">▲</button>
+      <button class="iconbtn" title="Down" onclick="moveBlock(this,1)">▼</button>
+      <button class="iconbtn ins" title="Insert below" onclick="toggleInsert(this)">＋</button>
+      <button class="iconbtn" title="Delete" onclick="this.closest('.block').remove()">✕</button>
+    </div>`;
+}
+function addTableBlock(caption, data, note, afterEl){
+  const div = document.createElement('div');
+  div.className = 'block'; div.dataset.type = 'table';
+  div.style.background = '#fafafc';
+  div.innerHTML = blockBar('표') + `
+    <input type="text" class="tbl-cap" placeholder="Table title (auto-number on: 'Table N.' auto — title only)">
+    <textarea class="tbl-data" placeholder="Paste a table from Excel/Sheets (cell=tab, row=newline)&#10;예)&#10;Var&#9;M&#9;SD&#10;VarA&#9;3.42&#9;0.81" style="min-height:90px; font-family:monospace; font-size:12px"></textarea>
+    <input type="text" class="tbl-note" placeholder="Note — e.g. Note. ***p < 0.001, CR: Critical ratio. (optional)" style="margin-top:6px; font-size:12px">
+    <p class="hint">Copy a range from Excel/Google Sheets (Ctrl/Cmd+C) and paste above to make a table. The note prints below the table at 8pt.</p>`;
+  placeBlock(div, afterEl);
+  if(caption) div.querySelector('.tbl-cap').value = caption;
+  if(data) div.querySelector('.tbl-data').value = data;
+  if(note) div.querySelector('.tbl-note').value = note;
+  return div;
+}
+function addFigureBlock(caption, image, note, afterEl){
+  const div = document.createElement('div');
+  div.className = 'block'; div.dataset.type = 'figure';
+  div.dataset.image = image || '';
+  div.style.background = '#fafafc';
+  div.innerHTML = blockBar('그림') + `
+    <div style="display:flex; gap:12px; align-items:flex-start">
+      <div style="flex:1">
+        <input type="file" class="fig-file" accept="image/*" onchange="onFigPick(this)">
+        <input type="text" class="fig-cap" placeholder="Figure title (auto-number on: 'Figure N.' auto — title only)" style="margin-top:8px">
+        <input type="text" class="fig-note" placeholder="Note — below figure, 8pt (optional)" style="margin-top:6px; font-size:12px">
+      </div>
+      <img class="fig-thumb" style="max-width:140px; max-height:100px; border:1px solid var(--line); border-radius:6px; display:${image?'block':'none'}" src="${image||''}">
+    </div>`;
+  placeBlock(div, afterEl);
+  if(caption) div.querySelector('.fig-cap').value = caption;
+  if(note) div.querySelector('.fig-note').value = note;
+  return div;
+}
+function onFigPick(input){
+  const f = input.files[0]; if(!f) return;
+  const block = input.closest('.block');
+  const r = new FileReader();
+  r.onload = e => {
+    block.dataset.image = e.target.result;
+    const thumb = block.querySelector('.fig-thumb');
+    thumb.src = e.target.result; thumb.style.display = 'block';
+    if(document.getElementById('previewOverlay').style.display==='block') renderPreview();
+  };
+  r.readAsDataURL(f);
+}
+function collectBlocks(){
+  return [...document.querySelectorAll('#blocks .block')].map(b=>{
+    const t = b.dataset.type;
+    if(t === 'table'){
+      return {type:'table', caption:b.querySelector('.tbl-cap').value, data:b.querySelector('.tbl-data').value, note:b.querySelector('.tbl-note').value};
+    }
+    if(t === 'figure'){
+      return {type:'figure', caption:b.querySelector('.fig-cap').value, image:b.dataset.image||'', note:b.querySelector('.fig-note').value};
+    }
+    return {type:t, text:b.querySelector('textarea').value};
+  }).filter(x=>{
+    if(x.type==='table') return (x.caption&&x.caption.trim()) || (x.data&&x.data.trim());
+    if(x.type==='figure') return (x.caption&&x.caption.trim()) || x.image;
+    return x.text && x.text.trim();
+  });
+}
+// DOI 규칙 {연}.{월}.{권}.{호}.{시작페이지} — Vol(Issue)·Start page 입력 시 DOI 뒤 3자리 자동 갱신
+function syncDoiFromFields(){
+  const doiEl = document.getElementById('doi');
+  const vi = (document.getElementById('vol_issue').value||'').trim();
+  const sp = (document.getElementById('start_page').value||'').trim();
+  const m = vi.match(/(\d+)\D+(\d+)/) || vi.match(/(\d+)/);
+  if(!m) return;
+  const vol = m[1], iss = (m[2]||'');
+  const parts = (doiEl.value||'').split('.').map(x=>x.trim()).filter(x=>x!=='');
+  if(parts.length < 2) return;                 // 등록연.월(앞 2자리)이 있어야 갱신
+  const head = parts.slice(0,2);
+  doiEl.value = head.concat([vol, iss, sp].filter(x=>x!=='')).join('.');
+}
+// Vol(Issue) 선택기(1–100) — 버튼 눌러 펼침
+function fillVi(){
+  const vol=document.getElementById('viVol'), iss=document.getElementById('viIss');
+  if(vol.options.length>1) return;
+  for(let i=1;i<=100;i++){ vol.add(new Option(i,i)); iss.add(new Option(i,i)); }
+}
+function toggleVi(){ const p=document.getElementById('viPicker'); p.style.display=(p.style.display==='none'||!p.style.display)?'flex':'none'; }
+function applyVi(){
+  const v=document.getElementById('viVol').value, i=document.getElementById('viIss').value;
+  const val=(v&&i)?(v+'('+i+')'):(v||'');
+  document.getElementById('vol_issue').value=val;
+  document.getElementById('viBtn').textContent=val||'Select…';
+  syncDoiFromFields();
+}
+function setVi(val){
+  document.getElementById('vol_issue').value=val||'';
+  document.getElementById('viBtn').textContent=val||'Select…';
+  const m=(val||'').match(/(\d+)\D+(\d+)/);
+  if(m){ fillVi(); document.getElementById('viVol').value=m[1]; document.getElementById('viIss').value=m[2]; }
+}
+// Page range 자동계산: 시작페이지 + 총페이지 → "시작-끝"(끝=시작+총-1)
+function syncPageRange(){
+  const sp=parseInt((document.getElementById('start_page').value||'').replace(/\D/g,''))||0;
+  const tp=parseInt((document.getElementById('total_pages').value||'').replace(/\D/g,''))||0;
+  const pr=document.getElementById('pages');
+  pr.value = (sp&&tp) ? (sp+'-'+(sp+tp-1)) : (sp?String(sp):'');
+}
+// 달력에서 발행일 선택 → Year(머릿글) + DOI 앞 2자리(연.월) 갱신
+function syncDateCal(){
+  const d=(document.getElementById('year_date').value||'');  // YYYY-MM-DD
+  if(!d) return;
+  const p=d.split('-'); const y=p[0], mo=String(parseInt(p[1]||'1'));
+  document.getElementById('year').value=y;
+  const doiEl=document.getElementById('doi');
+  const tail=(doiEl.value||'').split('.').filter(x=>x).slice(2);  // 권.호.시작페이지
+  doiEl.value=[y, mo].concat(tail).join('.');
+}
+function gather(){
+  const v = id => document.getElementById(id).value;
+  return {
+    title_en:v('title_en'), title_ko:v('title_ko'), authors:v('authors'), seq:v('seq'), doi:v('doi'),
+    received:v('received'), revised:v('revised'), accepted:v('accepted'),
+    abstract_en:v('abstract_en'), keywords_en:v('keywords_en'),
+    keywords_ko:v('keywords_ko'), jel:v('jel'),
+    blocks: collectBlocks(), references:v('references'), appendix: collectAppendix(),
+    affiliations:v('affiliations'), title_note:v('title_note'), copyright: document.getElementById('copyright').checked,
+    running_head: document.getElementById('running_head').checked,
+    lang: document.getElementById('lang').value,
+    start_page:v('start_page'), vol_issue:v('vol_issue'), year:v('year'), pages:v('pages'),
+    fix_spacing: document.getElementById('fix_spacing').checked,
+    auto_number: document.getElementById('auto_number').checked,
+    two_column: document.getElementById('two_column').checked
+  };
+}
+// 제목 자동 번호: 단계(h1~h4) 순서대로 1, 1.1, 1.1.1 … 부여 (기존 번호는 제거)
+const LEVEL = {h1:1, h2:2, h3:3, h4:4};
+function numberHeadings(blocks){
+  const c = [0,0,0,0]; let tN = 0, fN = 0;
+  return blocks.map(b=>{
+    const lv = LEVEL[b.type];
+    if(lv){
+      c[lv-1]++; for(let i=lv;i<4;i++) c[i]=0;
+      const num = c.slice(0,lv).join('.') + '.';
+      const clean = (b.text||'').replace(/^\s*\d+(\.\d+)*\.?\s*/,'').trim();
+      return {...b, text: (num + ' ' + clean).trim()};
+    }
+    if(b.type==='table'){
+      tN++; const clean = (b.caption||'').replace(/^\s*(Table|표)\s*\d+\.?\s*/i,'').trim();
+      return {...b, caption: (`Table ${tN}. ` + clean).trim()};
+    }
+    if(b.type==='figure'){
+      fN++; const clean = (b.caption||'').replace(/^\s*(Figure|그림)\s*\d+\.?\s*/i,'').trim();
+      return {...b, caption: (`Figure ${fN}. ` + clean).trim()};
+    }
+    return {...b};
+  });
+}
+// 내보내기·미리보기 공통: 자동번호 적용된 데이터 사본
+function withNumbers(data){
+  if(!data.auto_number) return data;
+  return {...data, blocks: numberHeadings(data.blocks)};
+}
+function restoreBlock(b){
+  if(b.type==='table') addTableBlock(b.caption, b.data, b.note);
+  else if(b.type==='figure') addFigureBlock(b.caption, b.image, b.note);
+  else addBlock(b.type, b.text);
+}
+function populate(d){
+  const set=(id,val)=>{const el=document.getElementById(id); if(el)el.value=val||'';};
+  ['title_en','title_ko','authors','seq','received','revised','accepted','abstract_en',
+   'keywords_en','keywords_ko','jel','references','affiliations','doi',
+   'start_page','vol_issue','year','pages','title_note'].forEach(k=>set(k,d[k]));
+  if(d.lang){ const ls=document.getElementById('lang'); if(ls) ls.value=d.lang; }   // 언어 자동감지 반영
+  setVi(d.vol_issue);                                  // Vol(Issue) 버튼/선택기 반영
+  // 발행일 달력 + Year + 총페이지 복원(DOI 연.월, page range에서 총페이지 역산)
+  const _dn=(d.doi||'').split('.').filter(x=>x);
+  if(_dn.length>=2){ document.getElementById('year_date').value=_dn[0]+'-'+String(_dn[1]).padStart(2,'0')+'-01';
+                     document.getElementById('year').value=_dn[0]; }
+  const _pr=(d.pages||'').match(/(\d+)\s*-\s*(\d+)/);
+  if(_pr){ document.getElementById('total_pages').value=String(parseInt(_pr[2])-parseInt(_pr[1])+1); }
+  syncPageRange();
+  document.getElementById('copyright').checked = (d.copyright !== false);
+  renderAppendix(d.appendix || []);
+  document.getElementById('blocks').innerHTML='';
+  (d.blocks||[]).forEach(restoreBlock);
+  if(!(d.blocks||[]).length){ addBlock('h1'); addBlock('body'); }
+}
+async function importDocx(){
+  const f = document.getElementById('importFile').files[0];
+  const msg = document.getElementById('importMsg');
+  if(!f){ msg.textContent='⚠ Select a file first.'; return; }
+  if(!f.name.toLowerCase().endsWith('.docx')){ msg.textContent='⚠ .docx files only.'; return; }
+  msg.textContent='Reading…';
+  try{
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const d = await pyParse(bytes);
+    populate(d);
+    msg.textContent = '✓ Auto-filled — please review and edit.';
+    window.scrollTo({top:document.querySelector('.card:nth-of-type(2)').offsetTop-20, behavior:'smooth'});
+  }catch(err){ msg.textContent = 'Failed: ' + err.message; }
+}
+// ----- 미리보기 -----
+function pvEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pvParas(text, cls){
+  return (text||'').split('\n').map(t=>t.trim()).filter(Boolean)
+    .map(t=>`<p class="${cls}">${pvEsc(t)}</p>`).join('');
+}
+function pvTable(data){
+  const rows = (data||'').replace(/\r\n/g,'\n').split('\n').filter(r=>r.trim()!=='');
+  if(!rows.length) return '';
+  const cells = r => `<tr>${r.split('\t').map(c=>`<td>${pvEsc(c.trim())}</td>`).join('')}</tr>`;
+  return `<table class="pv-table">${rows.map(cells).join('')}</table>`;
+}
+function renderPreview(){
+  const d = withNumbers(gather());
+  let h = '';
+  h += `<p class="pv-issn">Print ISSN: 2093-9582 · Online ISSN: 2508-4593</p>`;
+  h += pvParas(d.title_en, 'pv-title-en');
+  h += pvParas(d.title_ko, 'pv-title-ko');
+  if(d.authors.trim()) h += `<p class="pv-author">${pvEsc(d.authors)}</p>`;
+  const rl = [d.received&&'Received: '+d.received, d.revised&&'Revised: '+d.revised,
+              d.accepted&&'Accepted: '+d.accepted].filter(Boolean).join(' ');
+  if(rl) h += `<p class="pv-review">${pvEsc(rl)}</p>`;
+  if(d.abstract_en.trim() || d.keywords_en.trim() || d.keywords_ko.trim() || (d.jel||'').trim()){
+    let box = `<p class="pv-abs-title">Abstract</p>`;
+    box += pvParas(d.abstract_en, 'pv-abstract');
+    if(d.keywords_en.trim()) box += `<p class="pv-kw">Keywords: ${pvEsc(d.keywords_en)}</p>`;
+    if(d.keywords_ko.trim()) box += `<p class="pv-kw">키워드: ${pvEsc(d.keywords_ko)}</p>`;
+    if((d.jel||'').trim()) box += `<p class="pv-kw">JEL Classification Code: ${pvEsc(d.jel)}</p>`;
+    h += `<div class="pv-absbox">${box}</div>`;
+  }
+  d.blocks.forEach(b=>{
+    if(b.type==='body') h += pvParas(b.text, 'pv-body');
+    else if(b.type==='table'){
+      if((b.caption||'').trim()) h += `<p class="pv-tcap">${pvEsc(b.caption)}</p>`;
+      h += pvTable(b.data);
+    }
+    else if(b.type==='figure'){
+      if(b.image) h += `<div class="pv-figwrap"><img class="pv-fig" src="${b.image}"></div>`;
+      if((b.caption||'').trim()) h += `<p class="pv-fcap">${pvEsc(b.caption)}</p>`;
+    }
+    else h += `<p class="pv-${b.type}">${pvEsc(b.text)}</p>`;
+  });
+  if(d.references.trim()){
+    h += `<p class="pv-refhead">References</p>` + pvParas(d.references, 'pv-ref');
+  }
+  (collectAppendix()||[]).forEach(x=>{
+    if(x.type==='table') h += pvTable(x.data);
+    else h += `<p class="pv-ref">${pvEsc(x.text||'')}</p>`;
+  });
+  document.getElementById('previewPage').innerHTML = h || '<div class="pv-empty">Nothing entered yet.</div>';
+}
+function openPreview(){
+  renderPreview();
+  document.getElementById('pvLoading').style.display='none';
+  document.getElementById('pvPdf').style.display='none';
+  document.getElementById('previewPage').style.display='block';
+  document.getElementById('previewOverlay').style.display='block';
+}
+function closePreview(){ document.getElementById('previewOverlay').style.display='none'; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePreview(); });
+document.addEventListener('input', ()=>{ if(document.getElementById('previewOverlay').style.display==='block') renderPreview(); });
+
+async function checkCitations(){
+  const ov=document.getElementById('previewOverlay'); ov.style.display='block';
+  document.getElementById('pvLoading').style.display='none';
+  document.getElementById('pvPdf').style.display='none';
+  const page=document.getElementById('previewPage'); page.style.display='block';
+  page.innerHTML='<p class="pv-empty">Checking…</p>';
+  try{
+    const r=await pyCheck(withNumbers(gather()));
+    let h=`<p class="pv-title-en" style="font-size:16px">Reference &amp; citation check</p>`;
+    h+=`<p class="pv-review">In-text citations: ${r.n_cites} · References: ${r.n_refs}</p>`;
+    h+=`<p class="pv-h2" style="color:#c0392b">⚠ Cited but missing from References (${r.missing.length})</p>`;
+    h+= r.missing.length ? '<ul style="font-size:12px">'+r.missing.map(m=>`<li>${pvEsc(m)}</li>`).join('')+'</ul>' : '<p class="pv-body">None ✓</p>';
+    h+=`<p class="pv-h2" style="color:#b9770e">In References but not cited in text (${r.uncited.length})</p>`;
+    h+= r.uncited.length ? '<ul style="font-size:12px">'+r.uncited.map(u=>`<li>${pvEsc(u)}…</li>`).join('')+'</ul>' : '<p class="pv-body">None ✓</p>';
+    h+=`<p class="pv-review" style="margin-top:14px">※ Heuristic estimate — co-authors/abbreviated cites may cause false alerts. Use as a guide.</p>`;
+    page.innerHTML=h;
+  }catch(err){ page.innerHTML='<p class="pv-empty">Check failed: '+pvEsc(err.message)+'</p>'; }
+}
+async function exportDocx(){
+  const btn = document.getElementById('exportBtn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  try{
+    const data = withNumbers(gather());
+    const bytes = await pyBuild(data);
+    const name = await pyFilename(data);
+    const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    URL.revokeObjectURL(a.href);
+    btn.textContent = '✓ Done!'; setTimeout(()=>btn.textContent='Export to Word', 1800);
+  }catch(err){ alert('Export failed: ' + err.message); btn.textContent='Export to Word'; }
+  finally{ btn.disabled = false; }
+}
+function saveDraft(){ localStorage.setItem('kjfm_draft', JSON.stringify(gather()));
+  document.getElementById('foot').textContent = 'Draft saved (' + new Date().toLocaleTimeString() + ')'; }
+function loadDraft(){
+  const raw = localStorage.getItem('kjfm_draft'); if(!raw){ alert('No saved draft.'); return; }
+  const d = JSON.parse(raw); const set=(id,val)=>{const el=document.getElementById(id); if(el)el.value=val||'';};
+  ['title_en','title_ko','authors','seq','received','revised','accepted','abstract_en','keywords_en',
+   'keywords_ko','jel','references','affiliations','doi','title_note'].forEach(k=>set(k,d[k]));
+  document.getElementById('copyright').checked = (d.copyright !== false);
+  document.getElementById('fix_spacing').checked = !!d.fix_spacing;
+  document.getElementById('auto_number').checked = (d.auto_number !== false);
+  document.getElementById('two_column').checked = (d.two_column !== false);
+  setVi(d.vol_issue);
+  renderAppendix(d.appendix || []);
+  document.getElementById('blocks').innerHTML='';
+  (d.blocks||[]).forEach(restoreBlock);
+}
+// 시작: 템플릿 상태 확인 + 기본 본문 블록 1개
+fillVi();
+addBlock('h1'); document.querySelector('#blocks textarea').value='Introduction';
+addBlock('body');
+</script>
+</body>
+</html>
