@@ -316,6 +316,8 @@
 </div>
 
 <script>
+// 정확 PDF 백엔드(LibreOffice). 배포 후 URL을 넣으면 Preview가 워드 동일 PDF로. 비면 docx-preview 근사.
+let BACKEND_URL = (function(){ try{ return (localStorage.getItem('kjfm_backend')||'').trim(); }catch(e){ return ''; } })() || "";
 // ── 브라우저 파이썬 엔진(Pyodide) — 서버 없이. 출력은 서버판과 byte 동일(검증됨) ──
 let _py=null;
 const _setStatus=(t,bad)=>{const el=document.getElementById('status'); if(el){el.textContent=t; el.className=bad?'bad':'ok';}};
@@ -744,11 +746,28 @@ function renderPreview(){
   });
   document.getElementById('previewPage').innerHTML = h || '<div class="pv-empty">Nothing entered yet.</div>';
 }
+let _pvBlobUrl=null;
 async function openPreview(autoPrint){
   const ov=document.getElementById('previewOverlay'); ov.style.display='block';
-  const load=document.getElementById('pvLoading'), page=document.getElementById('previewPage');
-  document.getElementById('pvPdf').style.display='none';
-  page.style.display='none'; load.style.display='block'; load.textContent='Rendering exported document… (a few seconds)';
+  const load=document.getElementById('pvLoading'), page=document.getElementById('previewPage'), pdf=document.getElementById('pvPdf');
+  pdf.style.display='none'; page.style.display='none'; load.style.display='block';
+  // 1) 정확 PDF 백엔드(LibreOffice = 워드 동일) 우선
+  if(BACKEND_URL){
+    load.textContent='Rendering exact PDF (LibreOffice)… first call may take ~30s';
+    try{
+      const res=await fetch(BACKEND_URL.replace(/\/$/,'')+'/preview_pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(withNumbers(gather()))});
+      if(res.ok){
+        const blob=await res.blob();
+        if(_pvBlobUrl) URL.revokeObjectURL(_pvBlobUrl);
+        _pvBlobUrl=URL.createObjectURL(blob);
+        pdf.src=_pvBlobUrl; pdf.style.display='block'; load.style.display='none';
+        if(autoPrint) setTimeout(()=>{ try{ pdf.contentWindow.focus(); pdf.contentWindow.print(); }catch(e){ window.print(); } }, 700);
+        return;
+      }
+    }catch(e){ console.warn('backend failed, fallback to docx-preview', e); }
+  }
+  // 2) 폴백: docx-preview(브라우저 근사)
+  load.textContent='Rendering exported document… (a few seconds)';
   try{
     page.style.display='block'; page.style.maxWidth='none'; page.style.background='transparent'; page.style.boxShadow='none'; page.style.padding='0';
     await renderDocxInto(page);
@@ -756,8 +775,12 @@ async function openPreview(autoPrint){
     if(autoPrint) setTimeout(()=>window.print(), 400);
   }catch(e){ load.textContent='Preview failed: '+e.message+'  (Export still works.)'; console.error(e); }
 }
-function savePdf(){ window.print(); }
-function exportPdf(){ openPreview(true); }   // Export to PDF = full 렌더 후 인쇄(PDF 저장)
+function savePdf(){
+  const pdf=document.getElementById('pvPdf');
+  if(pdf.style.display!=='none' && _pvBlobUrl){ const a=document.createElement('a'); a.href=_pvBlobUrl; a.download='KJFM_preview.pdf'; a.click(); }
+  else window.print();
+}
+function exportPdf(){ openPreview(true); }   // Export to PDF = 정확 PDF(백엔드) 또는 렌더 후 인쇄
 function closePreview(){ document.getElementById('previewOverlay').style.display='none'; }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closePreview(); closeReview(); } });
 
